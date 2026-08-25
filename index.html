@@ -693,7 +693,7 @@ async function loadDashboard(){
   setStatus("Loading…");
   try {
     const NO_ENVELOPE_TYPES = ["No envelope","Plain White","Plain white","Print only","Booklet","Sliding Invitation"];
-    const readyFormula = `AND(OR({Status}="To assemble",{Status}="Wax seal to do"),OR({Envelope in stock}=1,${NO_ENVELOPE_TYPES.map(t => `{Type}="${t}"`).join(",")}))`;
+    const readyFormula = `AND(OR({Status}="To assemble",{Status}="Wax seal to do"),OR({Envelope in stock}=1,${NO_ENVELOPE_TYPES.map(t => `{Type}="${t}"`).join(",")}),{Assignee for assembly}="")`;
     const assigneeFormula = (name) => `AND({Assignee for assembly}="${name}",NOT(OR({Status}="Done",{Status}="Cancelled",{Status}="For posting",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
 
     const [ready, hershey, lara, lizette] = await Promise.all([
