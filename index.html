@@ -326,7 +326,7 @@ const BASE_ID = "appo9wxYM4FruiIBA";
 const TABLE_ID = "tblYa1m1b8ru4vOh9";
 const SOUVENIR_TABLE_ID = "tblXtn5j4tMaL9Tax";
 let SOUVENIR_MAP = {};
-const SOLO_SOUVENIR_FIELDS = ["FB Name","Meta link","Priority","Area","Event date","Assignee for assembly","Status","Item","QTY","Total","DP","Balance","Details"];
+const SOLO_SOUVENIR_FIELDS = ["FB Name","Meta link","Priority","Area","Event date","Assignee for assembly","Status","Type","QTY","Total","DP","Balance","Details"];
 
 // Columns rendered, in order. type: text|pill|check|notes
 const COLUMNS = [
@@ -456,7 +456,7 @@ async function fetchSouvenirsByIds(ids){
     const chunk = uniqueIds.slice(i, i + chunkSize);
     const formula = `OR(${chunk.map(id => `RECORD_ID()="${id}"`).join(",")})`;
     const params = new URLSearchParams();
-    params.append("fields[]", "Item");
+    params.append("fields[]", "Type");
     params.append("fields[]", "QTY");
     params.set("filterByFormula", formula);
     params.set("pageSize", "100");
@@ -469,7 +469,7 @@ async function fetchSouvenirsByIds(ids){
     }
     const data = await res.json();
     data.records.forEach(rec => {
-      map[rec.id] = { item: rec.fields["Item"] || "", qty: rec.fields["QTY"] };
+      map[rec.id] = { item: rec.fields["Type"] || "", qty: rec.fields["QTY"] };
     });
   }
   return map;
@@ -640,13 +640,18 @@ function renderTotalsRow(cols, f){
 }
 
 // One line per linked souvenir record: "50 Money Envelope, 1 His and Her Vow Card"
+function souvenirUnit(qty){
+  return qty === 1 ? "set" : "pcs";
+}
+
 function renderRow5(f){
   const ids = asList(f["Souvenir 2"]);
   if (!ids.length) return "";
   const parts = ids.map(id => {
     const s = SOUVENIR_MAP[id];
     if (!s) return null;
-    return `${s.qty != null ? s.qty : ""} ${s.item}`.trim();
+    const qtyText = s.qty != null ? `${s.qty} ${souvenirUnit(s.qty)}` : "";
+    return `${qtyText} ${s.item}`.trim();
   }).filter(Boolean);
   if (!parts.length) return "";
   return `<div class="plain-row">${parts.join(", ")}</div>`;
@@ -728,8 +733,8 @@ function renderSouvenirCard(rec){
   const notesText = f["Details"] || "";
   const currentAssignee = f["Assignee for assembly"] || "";
 
-  const itemLine = (f["QTY"] != null || f["Item"])
-    ? `<div class="plain-row"><strong>${f["QTY"] != null ? f["QTY"] : ""} sets</strong> ${f["Item"] ? coloredSpan("Item", f["Item"], true) : ""}</div>`
+  const itemLine = (f["QTY"] != null || f["Type"])
+    ? `<div class="plain-row">${f["QTY"] != null ? `<strong>${f["QTY"]} ${souvenirUnit(f["QTY"])}</strong> ` : ""}${f["Type"] ? coloredSpan("Type", f["Type"], true) : ""}</div>`
     : "";
   const row1Html = renderPlainMeta(f);
 
