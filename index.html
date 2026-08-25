@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MH Creatives — Order Dashboard</title>
+<style>
+  :root{
+    --bg:#f6f7f9;
+    --panel:#ffffff;
+    --border:#e1e4e8;
+    --border-strong:#d0d4d9;
+    --text:#1d2129;
+    --muted:#6b7280;
+    --accent:#2d7ff9;
+    --accent-dark:#1f66d0;
+    --header-bg:#f8f9fb;
+    --row-alt:#fafbfc;
+    --row-hover:#f0f6ff;
+    --c-ready:#e8b64a;
+    --c-ready-bg:#fef6e3;
+    --c-hershey:#e07a7a;
+    --c-hershey-bg:#fdecec;
+    --c-lara:#5b9bd5;
+    --c-lara-bg:#e9f2fb;
+    --c-lizette:#6fb37a;
+    --c-lizette-bg:#eaf6ec;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(45,127,249,0.06), transparent 40%),
+      radial-gradient(circle at 100% 0%, rgba(224,122,122,0.06), transparent 40%),
+      var(--bg);
+    color:var(--text);
+    padding:20px;
+    font-size:13px;
+  }
+  header{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:16px;
+  }
+  h1{
+    font-size:20px;
+    margin:0;
+    letter-spacing:-0.01em;
+    background:linear-gradient(90deg,#2d7ff9,#e07a7a);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    font-weight:800;
+  }
+  h1 small{
+    display:block;
+    font-size:11.5px;
+    font-weight:400;
+    color:var(--muted);
+    margin-top:2px;
+  }
+  .controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  input[type=password]{
+    padding:7px 10px;
+    border:1px solid var(--border-strong);
+    border-radius:6px;
+    font-size:12.5px;
+    background:var(--panel);
+    color:var(--text);
+    width:220px;
+  }
+  button{
+    padding:7px 13px;
+    border:none;
+    border-radius:6px;
+    background:var(--accent);
+    color:#fff;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  button:hover{background:var(--accent-dark);}
+  button.secondary{background:transparent;color:var(--muted);border:1px solid var(--border-strong);}
+  button.secondary:hover{background:var(--panel);color:var(--text);}
+  #status-line{font-size:11.5px;color:var(--muted);margin-bottom:14px;}
+  #status-line.error{color:#c0362c;}
+  .setup-note{
+    background:#fff8ea;border:1px solid #f0dfae;color:#6b5527;
+    font-size:12px;padding:9px 13px;border-radius:6px;margin-bottom:14px;display:none;
+  }
+
+  section{margin-bottom:26px;}
+  .section-title{
+    display:flex;align-items:center;gap:8px;
+    font-size:13px;font-weight:700;
+    color:var(--text);margin-bottom:10px;
+    padding:8px 12px;
+    border-radius:8px;
+    border-left:4px solid var(--border-strong);
+    background:var(--panel);
+  }
+  .section-title.ready{border-left-color:var(--c-ready);background:var(--c-ready-bg);}
+  .section-title.hershey{border-left-color:var(--c-hershey);background:var(--c-hershey-bg);}
+  .section-title.lara{border-left-color:var(--c-lara);background:var(--c-lara-bg);}
+  .section-title.lizette{border-left-color:var(--c-lizette);background:var(--c-lizette-bg);}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .dot.ready{background:var(--c-ready);}
+  .dot.hershey{background:var(--c-hershey);}
+  .dot.lara{background:var(--c-lara);}
+  .dot.lizette{background:var(--c-lizette);}
+  .count-badge{
+    background:var(--header-bg);border:1px solid var(--border);
+    border-radius:999px;padding:1px 9px;font-size:11px;font-weight:600;color:var(--muted);
+  }
+
+  .cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:12px;
+  }
+  .cards.single-col{grid-template-columns:1fr;}
+  .assigned-columns{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:16px;
+    align-items:start;
+  }
+  @media (max-width:960px){
+    .assigned-columns{grid-template-columns:1fr;}
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-left:3px solid var(--border-strong);
+    border-radius:10px;
+    padding:12px 14px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.05);
+  }
+  .card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.09);}
+  .accent-ready .card{border-left-color:var(--c-ready);}
+  .accent-hershey .card{border-left-color:var(--c-hershey);}
+  .accent-lara .card{border-left-color:var(--c-lara);}
+  .accent-lizette .card{border-left-color:var(--c-lizette);}
+  .card-top{
+    margin-bottom:8px;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--border);
+  }
+  .card-top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+  }
+  .card-top-row.secondary{margin-top:5px;}
+  .card-num-name{display:flex;align-items:baseline;gap:6px;min-width:0;}
+  .card-num{font-weight:700;font-size:14px;color:var(--text);white-space:nowrap;}
+  .card-name{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .card-convo{font-size:11px;}
+  .card-convo a{color:var(--accent);text-decoration:none;font-weight:600;}
+  .card-convo a:hover{text-decoration:underline;}
+  .assignee-select{
+    font-size:11px;
+    font-weight:600;
+    padding:2px 6px;
+    border-radius:5px;
+    border:1px solid var(--border-strong);
+    background:var(--panel);
+    color:var(--text);
+    cursor:pointer;
+  }
+  .assignee-select:disabled{opacity:.5;cursor:wait;}
+  .plain-row{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    font-size:12.5px;
+    color:var(--text);
+    margin-bottom:6px;
+  }
+  .plain-row.row1{font-weight:600;margin-bottom:8px;justify-content:space-between;}
+  .layout-link{
+    font-size:11px;
+    font-weight:600;
+    color:var(--accent);
+    text-decoration:none;
+    white-space:nowrap;
+  }
+  .layout-link:hover{text-decoration:underline;}
+  .field-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px 10px;
+    font-size:12px;
+    margin-top:8px;
+  }
+  .field{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .field .k{font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);}
+  .field .v{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .field .v.multi{white-space:normal;display:flex;flex-wrap:wrap;gap:3px;}
+  .totals-row{
+    display:flex;
+    gap:14px;
+    margin-top:10px;
+    padding-top:8px;
+    border-top:1px solid var(--border);
+  }
+  .totals-item{display:flex;flex-direction:column;gap:2px;}
+  .totals-item .k{font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);}
+  .totals-item .v{font-size:13px;font-weight:700;color:var(--text);}
+  .card-notes{
+    margin-top:10px;
+    font-size:11.5px;
+    color:var(--muted);
+    background:var(--bg);
+    border-radius:6px;
+    padding:7px 9px;
+    white-space:pre-wrap;
+    max-height:60px;
+    overflow-y:auto;
+  }
+  .pill{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:5px;
+    font-size:11px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .check{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:16px;height:16px;
+    border-radius:4px;
+  }
+  .check.yes{background:#2fa84f;color:#fff;}
+  .check.no{border:1px solid var(--border-strong);}
+  .empty{
+    color:var(--muted);
+    font-size:12px;
+    padding:18px;
+    text-align:center;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+  }
+  .total-badge{
+    font-size:14px;
+    font-weight:700;
+    color:var(--text);
+    background:var(--panel);
+    border:1px solid var(--border-strong);
+    border-radius:999px;
+    padding:4px 14px;
+  }
+  .total-badge .label{
+    font-size:11px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:var(--muted);
+    margin-right:6px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Order Dashboard</h1>
+  <div class="controls">
+    <input type="password" id="pat-input" placeholder="Airtable Personal Access Token">
+    <button id="save-btn">Connect</button>
+    <button id="refresh-btn" class="secondary">Refresh</button>
+  </div>
+</header>
+
+<div class="setup-note" id="setup-note">
+  Paste your Airtable Personal Access Token above and click Connect. It's stored only in this browser's local storage — never sent anywhere except directly to Airtable's API.
+  Token needs <code>data.records:read</code> and <code>data.records:write</code> scope on the MH base (write is required to edit Assignee from a card).
+</div>
+
+<div id="status-line">Not connected.</div>
+
+<section>
+  <div class="section-title ready"><span class="dot ready"></span> Ready for Assigning <span class="count-badge" id="ready-count">0</span><span class="total-badge" id="ready-total"></span></div>
+  <div class="cards accent-ready" id="ready-cards"></div>
+</section>
+
+<div class="section-title assigned-heading">Assigned Orders <span class="total-badge" id="assigned-total"></span></div>
+<div class="assigned-columns">
+  <section>
+    <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total"></span></div>
+    <div class="cards single-col accent-hershey" id="hershey-cards"></div>
+  </section>
+
+  <section>
+    <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total"></span></div>
+    <div class="cards single-col accent-lara" id="lara-cards"></div>
+  </section>
+
+  <section>
+    <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total"></span></div>
+    <div class="cards single-col accent-lizette" id="lizette-cards"></div>
+  </section>
+</div>
+
+<script>
+const BASE_ID = "appo9wxYM4FruiIBA";
+const TABLE_ID = "tblYa1m1b8ru4vOh9";
+
+// Columns rendered, in order. type: text|pill|check|notes
+const COLUMNS = [
+  { key: "Client Number", label: "#", type: "num" },
+  { key: "FB Name", label: "FB Name", type: "text" },
+  { key: "Meta link", label: "Open convo", type: "link" },
+  { key: "Layout", label: "Open layout", type: "link" },
+  { key: "Priority", label: "Priority", type: "pill" },
+  { key: "Area", label: "Area", type: "pill" },
+  { key: "Event", label: "Event", type: "pill" },
+  { key: "Event date", label: "Event Date", type: "date" },
+  { key: "Status", label: "Status", type: "pill" },
+  { key: "Assignee for assembly", label: "Assignee", type: "pill" },
+  { key: "Size", label: "Size", type: "pill" },
+  { key: "QTY", label: "Qty", type: "text" },
+  { key: "Type", label: "Type", type: "pill" },
+  { key: "Color", label: "Color", type: "pill" },
+  { key: "Wax seal", label: "Wax Seal", type: "check" },
+  { key: "Seal", label: "Seal", type: "pill" },
+  { key: "Stamp", label: "Stamp", type: "pill" },
+  { key: "Wax", label: "Wax", type: "pill" },
+  { key: "Add ons", label: "Add Ons", type: "pill" },
+  { key: "Souvenir", label: "Souvenir", type: "text" },
+  { key: "Own Total", label: "Own Total", type: "currency" },
+  { key: "Souvenir total", label: "Souvenir Total", type: "currency" },
+  { key: "Total", label: "Total", type: "currency" },
+  { key: "Notes", label: "Notes", type: "notes" }
+];
+const FIELDS = COLUMNS.map(c => c.key);
+
+// Airtable hue token -> pastel pill color
+const HUE_HEX = {
+  blue:  { bg:"#d6e6ff", fg:"#1f5fa8" },
+  cyan:  { bg:"#cdf1f4", fg:"#0f6675" },
+  teal:  { bg:"#c7f3e8", fg:"#0b6e5a" },
+  green: { bg:"#d9f2d3", fg:"#2f6c2c" },
+  yellow:{ bg:"#fbecc0", fg:"#8a6d16" },
+  orange:{ bg:"#ffe2c4", fg:"#96530f" },
+  red:   { bg:"#ffd7d7", fg:"#a13a3a" },
+  pink:  { bg:"#fbd7e7", fg:"#a13a6f" },
+  purple:{ bg:"#e8d7fb", fg:"#6b3aa1" },
+  gray:  { bg:"#e4e2dd", fg:"#56514a" }
+};
+function hueFromToken(token){
+  if (!token) return "gray";
+  const m = token.match(/^[a-z]+/i);
+  const h = m ? m[0].toLowerCase() : "gray";
+  return HUE_HEX[h] ? h : "gray";
+}
+// Exact color map pulled from the Airtable field schema (small enum fields)
+const EXACT_COLORS = {
+  "Status": {"On hold production":"green","On hold shipping":"orange","On hold layout":"orange","Pending details":"orange","For layout":"red","For enhancement":"red","Layout to copy":"red","Seal for layout":"red","Vellum for layout":"red","Liner for layout":"red","Envelope for layout":"red","Layout in progress":"yellow","For revision":"purple","To resize":"purple","Map layout":"orange","For checking":"gray","For submission":"yellow","Waiting approval (client)":"blue","Balance to pay":"blue","For checkout":"pink","To print":"green","Sample print":"blue","Printing":"teal","Liner to print":"orange","Vellum to print":"blue","Seal to print":"cyan","Tag to print":"teal","Envelope to print":"blue","Wax seal to do":"gray","To assemble":"cyan","Photo":"yellow","For packaging":"orange","To Ship":"orange","For posting":"yellow","Cancelled":"purple","Done":"gray"},
+  "Priority": {"Prio":"cyan","7 days":"red","3 days":"red","1 day":"red","Rush":"red"},
+  "Assignee for assembly": {"Hershey":"cyan","Lara":"orange","Lizette":"teal"},
+  "Area": {"NL":"blue","CL":"cyan","NCR":"teal","SL":"green","VIS":"yellow","MIN":"orange"},
+  "Event": {"Wedding":"blue","Debut":"cyan","Dedication/Baptism":"teal","Birthday":"green","Special Event":"yellow","Graduation":"blue","Special event":"blue","Christening":"blue","Proposal":"blue","Website":"blue","Baptism":"blue"},
+  "Shipping option": {"Shopee":"gray","Direct":"gray"},
+  "Seal": {"Sticker seal":"blue","Wax seal":"cyan","Wax w/ flower":"teal","Wax w/ string and flower":"teal","Wax w/ string":"cyan","Ribbon":"green","No seal":"orange","Printed tag":"yellow","Frosted belt":"pink","Frosted belt with print":"purple","Belt w/ print":"red","Belt only":"blue","Tag":"blue","Wax seal with flower":"teal","Jute string":"blue","Belt with print":"blue","Belt with wax seal":"blue","Wax w/ jute and flower":"teal","Wax seal with string and flower":"blue"},
+  "Stamp": {"#1 Rosemary":"blue","#2 Rose":"teal","#3 BOG":"cyan","#4 STD":"green","Rose":"blue"},
+  "Type": {"Plain White":"blue","Transparent":"cyan","Colored":"teal","Portrait colored":"blue","Premium Colored":"gray","Premium portrait colored":"cyan","Gatefold":"green","Passport":"yellow","Passport with holder":"blue","Folding":"orange","Pocket Cover":"red","Trifold":"pink","Trifold 2":"pink","Vellum cover":"purple","Vellum cover with print":"teal","Print only":"cyan","Booklet":"green","Pouch Cover":"cyan","No envelope":"teal","Sliding Invitation":"cyan","Burlap":"purple","Scroll":"purple","Premium Portrait":"blue","Plain white":"blue","Bifold":"blue","Layout only":"gray","Website":"green","Website with RSVP":"yellow","E invite":"orange","Card only":"blue","Side Cover":"red","Boarding pass":"blue","Acrylic":"blue"},
+  "Inserts": {"1":"gray","2":"gray","3":"gray","4":"gray","5":"gray","6":"gray","7":"gray","8":"gray","9":"gray","10":"gray","11":"gray","12":"gray","21":"gray","1 B2B":"gray","2 B2B":"gray","3 B2B":"gray","4 B2B":"gray","5 B2B":"gray","8 B2B":"gray"},
+  "Size": {"4R":"blue","4R diff size":"purple","5R":"cyan","5R diff size":"pink","4x4":"teal","3R":"green","A5":"yellow","6.5x2.5":"red","Custom":"orange","5R Folded":"gray","Trifold":"purple","A4":"purple","4R Folded":"blue","2R":"orange","Sliding":"blue","2x2":"teal","4x9":"yellow","3x3":"blue","2.5x5":"blue","2.2x3.6":"blue","2x3.5":"cyan","5.85 x 3 inches":"blue","5x8.3 inches":"blue","3.5x5 inches":"blue","4x4 inches":"blue"},
+  "Texture": {"Matte":"blue","Glossy":"cyan","Matte Textured":"teal","Glossy Textured":"green","Transparent":"yellow","Premium Matte":"orange","Linen paper":"red","Linen board":"pink","Frosted":"gray","Transparent vellum":"purple","Acrylic":"red","Matte textured":"teal","Leather":"blue","Textured":"blue","Glittered":"blue","Leathered":"blue","Leather photo top":"blue"},
+  "Courier": {"SPX":"blue","Lalamove":"cyan","J&T":"teal","LBC":"green","Victory":"yellow"}
+};
+function pillColor(field, name){
+  const exact = EXACT_COLORS[field] && EXACT_COLORS[field][name];
+  if (exact) return HUE_HEX[exact];
+  // deterministic hash fallback for large open-ended fields (Color, Add ons, etc.)
+  let hash = 0;
+  for (let i=0;i<name.length;i++) hash = (hash*31 + name.charCodeAt(i)) >>> 0;
+  const hues = Object.keys(HUE_HEX);
+  return HUE_HEX[hues[hash % hues.length]];
+}
+
+const statusLine = document.getElementById("status-line");
+const patInput = document.getElementById("pat-input");
+const setupNote = document.getElementById("setup-note");
+
+function getToken(){ return localStorage.getItem("mh_airtable_pat") || ""; }
+function setToken(t){ localStorage.setItem("mh_airtable_pat", t); }
+
+function setStatus(msg, isError){
+  statusLine.textContent = msg;
+  statusLine.className = isError ? "error" : "";
+}
+
+async function fetchAllRecords(formula){
+  const token = getToken();
+  let all = [];
+  let offset = null;
+  do {
+    const params = new URLSearchParams();
+    FIELDS.forEach(f => params.append("fields[]", f));
+    params.set("filterByFormula", formula);
+    params.set("pageSize", "100");
+    params.set("sort[0][field]", "Date needed");
+    params.set("sort[0][direction]", "asc");
+    if (offset) params.set("offset", offset);
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Airtable API error ${res.status}: ${body}`);
+    }
+    const data = await res.json();
+    all = all.concat(data.records);
+    offset = data.offset;
+  } while (offset);
+  return all;
+}
+
+function fmtDate(d){
+  if (!d) return "";
+  const dt = new Date(d + "T00:00:00");
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+function asList(v){
+  if (v == null) return [];
+  return Array.isArray(v) ? v : [v];
+}
+
+// Headerless, colorless rows shown in the card body, in order
+const ROW1_KEYS = ["Event","Event date","Area","Layout"];
+const ROW2_KEYS = ["QTY","Size","Color","Type"];
+const ROW3_KEYS = ["Wax seal","Seal","Stamp","Wax"];
+const ROW4_KEYS = ["Add ons"];
+const ROW5_KEYS = ["Souvenir"];
+// Labeled totals row at the bottom
+const TOTALS_KEYS = ["Own Total","Souvenir total","Total"];
+
+const PLAIN_ROW_KEYS = [...ROW1_KEYS, ...ROW2_KEYS, ...ROW3_KEYS, ...ROW4_KEYS, ...ROW5_KEYS];
+const rowCols = keys => keys.map(k => COLUMNS.find(c => c.key === k));
+const ROW1_COLS = rowCols(ROW1_KEYS);
+const ROW2_COLS = rowCols(ROW2_KEYS);
+const ROW3_COLS = rowCols(ROW3_KEYS);
+const ROW4_COLS = rowCols(ROW4_KEYS);
+const ROW5_COLS = rowCols(ROW5_KEYS);
+const TOTALS_COLS = rowCols(TOTALS_KEYS);
+
+// Columns shown as the compact labeled field grid on each card (everything not placed in the header or a special row)
+const CARD_FIELDS = COLUMNS.filter(c => !["Client Number","FB Name","Meta link","Status","Priority","Assignee for assembly","Notes","Details",...PLAIN_ROW_KEYS,...TOTALS_KEYS].includes(c.key));
+const ASSIGNEE_OPTIONS = ["Hershey","Lara","Lizette"];
+
+async function updateAssignee(recordId, value, selectEl){
+  const token = getToken();
+  selectEl.disabled = true;
+  try {
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}/${recordId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ fields: { "Assignee for assembly": value } })
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Failed to update assignee: ${res.status} ${body}`);
+    }
+    setStatus(`Updated #${recordId} assignee to ${value || "(unassigned)"} at ${new Date().toLocaleTimeString()}`);
+    loadDashboard();
+  } catch (err) {
+    console.error(err);
+    setStatus(err.message, true);
+    selectEl.disabled = false;
+  }
+}
+
+function fmtMoney(v){
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return "₱" + n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function fieldValueHtml(col, value){
+  if (col.type === "date") return fmtDate(value) || "—";
+  if (col.type === "check") return value ? `<span class="check yes">&#10003;</span>` : `<span class="check no"></span>`;
+  if (col.type === "currency") return fmtMoney(value);
+  if (col.type === "linkcount") {
+    const n = asList(value).length;
+    return n > 0 ? String(n) : "—";
+  }
+  if (col.type === "pill"){
+    const items = asList(value).filter(Boolean);
+    if (!items.length) return "—";
+    return items.map(v => {
+      const c = pillColor(col.key, v);
+      return `<span class="pill" style="background:${c.bg};color:${c.fg};">${v}</span>`;
+    }).join("");
+  }
+  return (value != null && value !== "") ? value : "—";
+}
+
+function escapeAttr(s){
+  return String(s).replace(/"/g, "&quot;");
+}
+
+// Plain (no header, no color) value for a headerless row
+function plainValue(col, value){
+  if (col.type === "date") return fmtDate(value) || "";
+  if (col.type === "check") return value ? `<span class="check yes">&#10003;</span>` : `<span class="check no"></span>`;
+  if (col.type === "currency") return value != null && value !== "" ? fmtMoney(value) : "";
+  const items = asList(value).filter(Boolean);
+  return items.length ? items.join(", ") : "";
+}
+
+// "20 sets 4R Green Textured [envelope check]"
+// "Wedding · Aug 25 · NCR" — Event and Area color-coded text, Event date plain, bold
+function renderRow1(f){
+  const parts = [];
+  asList(f["Event"]).forEach(v => {
+    if (!v) return;
+    const c = pillColor("Event", v);
+    parts.push(`<span style="color:${c.fg};">${v}</span>`);
+  });
+  const dateVal = fmtDate(f["Event date"]);
+  if (dateVal) parts.push(dateVal);
+  asList(f["Area"]).forEach(v => {
+    if (!v) return;
+    const c = pillColor("Area", v);
+    parts.push(`<span style="color:${c.fg};">${v}</span>`);
+  });
+  const layoutLink = f["Layout"]
+    ? `<a href="${escapeAttr(f["Layout"])}" target="_blank" rel="noopener" class="layout-link">Open layout &rarr;</a>`
+    : "";
+  if (!parts.length && !layoutLink) return "";
+  return `<div class="plain-row row1"><span>${parts.join(" ")}</span>${layoutLink}</div>`;
+}
+
+function coloredSpan(fieldKey, v, bold){
+  const c = pillColor(fieldKey, v);
+  return `<span style="color:${c.fg};${bold ? "font-weight:600;" : ""}">${v}</span>`;
+}
+
+function renderRow2(f){
+  const parts = [];
+  if (f["QTY"] != null && f["QTY"] !== "") parts.push(`<strong>${f["QTY"]} sets</strong>`);
+  asList(f["Size"]).forEach(v => v && parts.push(`<strong>${v}</strong>`));
+  asList(f["Color"]).forEach(v => v && parts.push(v));
+  asList(f["Type"]).forEach(v => v && parts.push(coloredSpan("Type", v, true)));
+  const text = parts.join(" ");
+  if (!text) return "";
+  return `<div class="plain-row">${text}</div>`;
+}
+
+// "Wax seal Rose Gold [wax seal check]" — space separated, checkbox at end
+function renderRow3(f){
+  const parts = [];
+  asList(f["Seal"]).forEach(v => v && parts.push(coloredSpan("Seal", v)));
+  asList(f["Stamp"]).forEach(v => v && parts.push(coloredSpan("Stamp", v)));
+  asList(f["Wax"]).forEach(v => v && parts.push(coloredSpan("Wax", v)));
+  const waxSeal = plainValue({ type: "check" }, f["Wax seal"]);
+  const text = parts.join(" ");
+  if (!text && !waxSeal) return "";
+  return `<div class="plain-row">${text}${waxSeal ? ` ${waxSeal}` : ""}</div>`;
+}
+
+function renderRow4(f){
+  const parts = [];
+  asList(f["Add ons"]).forEach(v => v && parts.push(coloredSpan("Add ons", v)));
+  if (!parts.length) return "";
+  return `<div class="plain-row">${parts.join(" &middot; ")}</div>`;
+}
+
+function renderPlainRow(cols, f, className){
+  const parts = cols.map(col => plainValue(col, f[col.key])).filter(v => v !== "");
+  if (!parts.length) return "";
+  return `<div class="${className}">${parts.join(" &middot; ")}</div>`;
+}
+
+function renderTotalsRow(cols, f){
+  const html = cols.map(col => `<div class="totals-item">
+      <span class="k">${col.label}</span>
+      <span class="v">${fmtMoney(f[col.key])}</span>
+    </div>`).join("");
+  return `<div class="totals-row">${html}</div>`;
+}
+
+function renderCard(rec){
+  const f = rec.fields;
+  const num = f["Client Number"] != null ? `#${f["Client Number"]}` : "—";
+  const statusVal = f["Status"];
+  const priorityVal = f["Priority"];
+  const metaLink = f["Meta link"];
+  const notesText = f["Notes"] || "";
+
+  const fieldsHtml = CARD_FIELDS.map(col => {
+    const val = f[col.key];
+    const isMulti = col.type === "pill" && asList(val).length > 1;
+    return `<div class="field">
+      <span class="k">${col.label}</span>
+      <span class="v${isMulti ? " multi" : ""}">${fieldValueHtml(col, val)}</span>
+    </div>`;
+  }).join("");
+
+  const row1Html = renderRow1(f);
+  const row2Html = renderRow2(f);
+  const row3Html = renderRow3(f);
+  const row4Html = renderRow4(f);
+  const row5Html = renderPlainRow(ROW5_COLS, f, "plain-row");
+  const totalsHtml = renderTotalsRow(TOTALS_COLS, f);
+
+  const convoHtml = metaLink
+    ? `<div class="card-convo"><a href="${escapeAttr(metaLink)}" target="_blank" rel="noopener">Open convo &rarr;</a></div>`
+    : `<div class="card-convo"></div>`;
+
+  const currentAssignee = f["Assignee for assembly"] || "";
+  const assigneeSelectHtml = `<select class="assignee-select">
+    <option value=""${currentAssignee ? "" : " selected"}>Unassigned</option>
+    ${ASSIGNEE_OPTIONS.map(name => `<option value="${name}"${currentAssignee === name ? " selected" : ""}>${name}</option>`).join("")}
+  </select>`;
+
+  const div = document.createElement("div");
+  div.className = "card";
+  div.innerHTML = `
+    <div class="card-top">
+      <div class="card-top-row">
+        <div class="card-num-name">
+          <span class="card-num">${num}</span>
+          <span class="card-name">${f["FB Name"] || ""}</span>
+        </div>
+        ${fieldValueHtml({type:"pill",key:"Status"}, statusVal)}
+      </div>
+      <div class="card-top-row secondary">
+        ${convoHtml}
+        ${assigneeSelectHtml}
+        ${fieldValueHtml({type:"pill",key:"Priority"}, priorityVal)}
+      </div>
+    </div>
+    ${row1Html}
+    ${row2Html}
+    ${row3Html}
+    ${row4Html}
+    ${row5Html}
+    <div class="field-grid">${fieldsHtml}</div>
+    ${totalsHtml}
+    ${notesText ? `<div class="card-notes">${notesText}</div>` : ""}
+  `;
+
+  const select = div.querySelector(".assignee-select");
+  select.addEventListener("change", () => updateAssignee(rec.id, select.value, select));
+
+  return div;
+}
+
+function sum(records, key){
+  return records.reduce((s, rec) => s + (Number(rec.fields[key]) || 0), 0);
+}
+
+function renderCards(containerId, countId, records, totalId){
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+  document.getElementById(countId).textContent = records.length;
+  if (records.length === 0){
+    container.innerHTML = `<div class="empty">No orders here.</div>`;
+  } else {
+    records.forEach(rec => container.appendChild(renderCard(rec)));
+  }
+
+  if (totalId){
+    const totalEl = document.getElementById(totalId);
+    totalEl.innerHTML = `<span class="label">Total</span>${fmtMoney(sum(records, "Total"))}`;
+  }
+}
+
+async function loadDashboard(){
+  const token = getToken();
+  if (!token){
+    setupNote.style.display = "block";
+    setStatus("Not connected — paste your Airtable token above.", true);
+    return;
+  }
+  setupNote.style.display = "none";
+  setStatus("Loading…");
+  try {
+    const NO_ENVELOPE_TYPES = ["No envelope","Plain White","Plain white","Print only","Booklet","Sliding Invitation"];
+    const readyFormula = `AND(OR({Status}="To assemble",{Status}="Wax seal to do"),OR({Envelope in stock}=1,${NO_ENVELOPE_TYPES.map(t => `{Type}="${t}"`).join(",")}))`;
+    const assigneeFormula = (name) => `AND({Assignee for assembly}="${name}",NOT(OR({Status}="Done",{Status}="Cancelled",{Status}="For posting",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
+
+    const [ready, hershey, lara, lizette] = await Promise.all([
+      fetchAllRecords(readyFormula),
+      fetchAllRecords(assigneeFormula("Hershey")),
+      fetchAllRecords(assigneeFormula("Lara")),
+      fetchAllRecords(assigneeFormula("Lizette"))
+    ]);
+
+    renderCards("ready-cards", "ready-count", ready, "ready-total");
+    renderCards("hershey-cards", "hershey-count", hershey, "hershey-total");
+    renderCards("lara-cards", "lara-count", lara, "lara-total");
+    renderCards("lizette-cards", "lizette-count", lizette, "lizette-total");
+
+    const assignedTotal = sum(hershey, "Total") + sum(lara, "Total") + sum(lizette, "Total");
+    document.getElementById("assigned-total").innerHTML = `<span class="label">Total</span>${fmtMoney(assignedTotal)}`;
+
+    setStatus("");
+  } catch (err) {
+    console.error(err);
+    setStatus(err.message, true);
+  }
+}
+
+document.getElementById("save-btn").addEventListener("click", () => {
+  const val = patInput.value.trim();
+  if (val) setToken(val);
+  loadDashboard();
+});
+document.getElementById("refresh-btn").addEventListener("click", loadDashboard);
+
+window.addEventListener("DOMContentLoaded", () => {
+  const existing = getToken();
+  if (existing) patInput.value = existing;
+  loadDashboard();
+});
+</script>
+
+</body>
+</html>
