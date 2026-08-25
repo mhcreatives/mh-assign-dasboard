@@ -163,6 +163,17 @@
   .card-convo{font-size:11px;}
   .card-convo a{color:var(--accent);text-decoration:none;font-weight:600;}
   .card-convo a:hover{text-decoration:underline;}
+  .souvenir-badge{
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:#8a6d16;
+    background:#fbecc0;
+    border-radius:5px;
+    padding:2px 7px;
+    white-space:nowrap;
+  }
   .assignee-select{
     font-size:11px;
     font-weight:600;
@@ -313,6 +324,9 @@
 <script>
 const BASE_ID = "appo9wxYM4FruiIBA";
 const TABLE_ID = "tblYa1m1b8ru4vOh9";
+const SOUVENIR_TABLE_ID = "tblXtn5j4tMaL9Tax";
+let SOUVENIR_MAP = {};
+const SOLO_SOUVENIR_FIELDS = ["FB Name","Meta link","Priority","Area","Event date","Assignee for assembly","Status","Item","QTY","Total","DP","Balance","Details"];
 
 // Columns rendered, in order. type: text|pill|check|notes
 const COLUMNS = [
@@ -335,7 +349,7 @@ const COLUMNS = [
   { key: "Stamp", label: "Stamp", type: "pill" },
   { key: "Wax", label: "Wax", type: "pill" },
   { key: "Add ons", label: "Add Ons", type: "pill" },
-  { key: "Souvenir", label: "Souvenir", type: "text" },
+  { key: "Souvenir 2", label: "Souvenir", type: "hidden" },
   { key: "Own Total", label: "Own Total", type: "currency" },
   { key: "Souvenir total", label: "Souvenir Total", type: "currency" },
   { key: "Total", label: "Total", type: "currency" },
@@ -401,18 +415,24 @@ function setStatus(msg, isError){
 }
 
 async function fetchAllRecords(formula){
+  return fetchAllFromTable(TABLE_ID, FIELDS, formula, "Date needed");
+}
+
+async function fetchAllFromTable(tableId, fields, formula, sortField){
   const token = getToken();
   let all = [];
   let offset = null;
   do {
     const params = new URLSearchParams();
-    FIELDS.forEach(f => params.append("fields[]", f));
+    fields.forEach(f => params.append("fields[]", f));
     params.set("filterByFormula", formula);
     params.set("pageSize", "100");
-    params.set("sort[0][field]", "Date needed");
-    params.set("sort[0][direction]", "asc");
+    if (sortField){
+      params.set("sort[0][field]", sortField);
+      params.set("sort[0][direction]", "asc");
+    }
     if (offset) params.set("offset", offset);
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}?${params.toString()}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${tableId}?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) {
@@ -424,6 +444,35 @@ async function fetchAllRecords(formula){
     offset = data.offset;
   } while (offset);
   return all;
+}
+
+// Fetch Item + QTY for a batch of Souvenir record IDs, chunked to keep the formula short
+async function fetchSouvenirsByIds(ids){
+  const token = getToken();
+  const map = {};
+  const uniqueIds = [...new Set(ids)].filter(Boolean);
+  const chunkSize = 80;
+  for (let i = 0; i < uniqueIds.length; i += chunkSize){
+    const chunk = uniqueIds.slice(i, i + chunkSize);
+    const formula = `OR(${chunk.map(id => `RECORD_ID()="${id}"`).join(",")})`;
+    const params = new URLSearchParams();
+    params.append("fields[]", "Item");
+    params.append("fields[]", "QTY");
+    params.set("filterByFormula", formula);
+    params.set("pageSize", "100");
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${SOUVENIR_TABLE_ID}?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Airtable API error ${res.status}: ${body}`);
+    }
+    const data = await res.json();
+    data.records.forEach(rec => {
+      map[rec.id] = { item: rec.fields["Item"] || "", qty: rec.fields["QTY"] };
+    });
+  }
+  return map;
 }
 
 function fmtDate(d){
@@ -442,7 +491,7 @@ const ROW1_KEYS = ["Event","Event date","Area","Layout"];
 const ROW2_KEYS = ["QTY","Size","Color","Type"];
 const ROW3_KEYS = ["Wax seal","Seal","Stamp","Wax"];
 const ROW4_KEYS = ["Add ons"];
-const ROW5_KEYS = ["Souvenir"];
+const ROW5_KEYS = ["Souvenir 2"];
 // Labeled totals row at the bottom
 const TOTALS_KEYS = ["Own Total","Souvenir total","Total"];
 
@@ -452,18 +501,17 @@ const ROW1_COLS = rowCols(ROW1_KEYS);
 const ROW2_COLS = rowCols(ROW2_KEYS);
 const ROW3_COLS = rowCols(ROW3_KEYS);
 const ROW4_COLS = rowCols(ROW4_KEYS);
-const ROW5_COLS = rowCols(ROW5_KEYS);
 const TOTALS_COLS = rowCols(TOTALS_KEYS);
 
 // Columns shown as the compact labeled field grid on each card (everything not placed in the header or a special row)
 const CARD_FIELDS = COLUMNS.filter(c => !["Client Number","FB Name","Meta link","Status","Priority","Assignee for assembly","Notes","Details",...PLAIN_ROW_KEYS,...TOTALS_KEYS].includes(c.key));
 const ASSIGNEE_OPTIONS = ["Hershey","Lara","Lizette"];
 
-async function updateAssignee(recordId, value, selectEl){
+async function updateAssignee(recordId, value, selectEl, tableId){
   const token = getToken();
   selectEl.disabled = true;
   try {
-    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}/${recordId}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${tableId || TABLE_ID}/${recordId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -581,18 +629,27 @@ function renderRow4(f){
   return `<div class="plain-row">${parts.join(" &middot; ")}</div>`;
 }
 
-function renderPlainRow(cols, f, className){
-  const parts = cols.map(col => plainValue(col, f[col.key])).filter(v => v !== "");
-  if (!parts.length) return "";
-  return `<div class="${className}">${parts.join(" &middot; ")}</div>`;
-}
-
 function renderTotalsRow(cols, f){
-  const html = cols.map(col => `<div class="totals-item">
+  const html = cols
+    .filter(col => col.key !== "Souvenir total" || asList(f["Souvenir 2"]).length > 0)
+    .map(col => `<div class="totals-item">
       <span class="k">${col.label}</span>
       <span class="v">${fmtMoney(f[col.key])}</span>
     </div>`).join("");
   return `<div class="totals-row">${html}</div>`;
+}
+
+// One line per linked souvenir record: "50 Money Envelope, 1 His and Her Vow Card"
+function renderRow5(f){
+  const ids = asList(f["Souvenir 2"]);
+  if (!ids.length) return "";
+  const parts = ids.map(id => {
+    const s = SOUVENIR_MAP[id];
+    if (!s) return null;
+    return `${s.qty != null ? s.qty : ""} ${s.item}`.trim();
+  }).filter(Boolean);
+  if (!parts.length) return "";
+  return `<div class="plain-row">${parts.join(", ")}</div>`;
 }
 
 function renderCard(rec){
@@ -616,7 +673,7 @@ function renderCard(rec){
   const row2Html = renderRow2(f);
   const row3Html = renderRow3(f);
   const row4Html = renderRow4(f);
-  const row5Html = renderPlainRow(ROW5_COLS, f, "plain-row");
+  const row5Html = renderRow5(f);
   const totalsHtml = renderTotalsRow(TOTALS_COLS, f);
 
   const convoHtml = metaLink
@@ -662,6 +719,74 @@ function renderCard(rec){
   return div;
 }
 
+// Solo souvenir order (no linked Invitation) — different field set, so its own compact card
+function renderSouvenirCard(rec){
+  const f = rec.fields;
+  const statusVal = f["Status"];
+  const priorityVal = f["Priority"];
+  const metaLink = f["Meta link"];
+  const notesText = f["Details"] || "";
+  const currentAssignee = f["Assignee for assembly"] || "";
+
+  const itemLine = (f["QTY"] != null || f["Item"])
+    ? `<div class="plain-row"><strong>${f["QTY"] != null ? f["QTY"] : ""} sets</strong> ${f["Item"] ? coloredSpan("Item", f["Item"], true) : ""}</div>`
+    : "";
+  const row1Html = renderPlainMeta(f);
+
+  const totalsHtml = `<div class="totals-row">
+    ${f["DP"] != null && f["DP"] !== "" ? `<div class="totals-item"><span class="k">DP</span><span class="v">${fmtMoney(f["DP"])}</span></div>` : ""}
+    ${f["Balance"] != null && f["Balance"] !== "" ? `<div class="totals-item"><span class="k">Balance</span><span class="v">${fmtMoney(f["Balance"])}</span></div>` : ""}
+    <div class="totals-item"><span class="k">Total</span><span class="v">${fmtMoney(f["Total"])}</span></div>
+  </div>`;
+
+  const convoHtml = metaLink
+    ? `<div class="card-convo"><a href="${escapeAttr(metaLink)}" target="_blank" rel="noopener">Open convo &rarr;</a></div>`
+    : `<div class="card-convo"></div>`;
+
+  const assigneeSelectHtml = `<select class="assignee-select">
+    <option value=""${currentAssignee ? "" : " selected"}>Unassigned</option>
+    ${ASSIGNEE_OPTIONS.map(name => `<option value="${name}"${currentAssignee === name ? " selected" : ""}>${name}</option>`).join("")}
+  </select>`;
+
+  const div = document.createElement("div");
+  div.className = "card";
+  div.innerHTML = `
+    <div class="card-top">
+      <div class="card-top-row">
+        <div class="card-num-name">
+          <span class="souvenir-badge">Souvenir</span>
+          <span class="card-name">${f["FB Name"] || ""}</span>
+        </div>
+        ${fieldValueHtml({type:"pill",key:"Status"}, statusVal)}
+      </div>
+      <div class="card-top-row secondary">
+        ${convoHtml}
+        ${assigneeSelectHtml}
+        ${fieldValueHtml({type:"pill",key:"Priority"}, priorityVal)}
+      </div>
+    </div>
+    ${row1Html}
+    ${itemLine}
+    ${totalsHtml}
+    ${notesText ? `<div class="card-notes">${notesText}</div>` : ""}
+  `;
+
+  const select = div.querySelector(".assignee-select");
+  select.addEventListener("change", () => updateAssignee(rec.id, select.value, select, SOUVENIR_TABLE_ID));
+
+  return div;
+}
+
+// "Wedding · Aug 25 · NCR" for the solo souvenir card (Event field doesn't exist on Souvenir table, so just date + area)
+function renderPlainMeta(f){
+  const parts = [];
+  const dateVal = fmtDate(f["Event date"]);
+  if (dateVal) parts.push(dateVal);
+  asList(f["Area"]).forEach(v => v && parts.push(coloredSpan("Area", v)));
+  if (!parts.length) return "";
+  return `<div class="plain-row row1">${parts.join(" ")}</div>`;
+}
+
 function sum(records, key){
   return records.reduce((s, rec) => s + (Number(rec.fields[key]) || 0), 0);
 }
@@ -673,7 +798,7 @@ function renderCards(containerId, countId, records, totalId){
   if (records.length === 0){
     container.innerHTML = `<div class="empty">No orders here.</div>`;
   } else {
-    records.forEach(rec => container.appendChild(renderCard(rec)));
+    records.forEach(rec => container.appendChild(rec._kind === "souvenir" ? renderSouvenirCard(rec) : renderCard(rec)));
   }
 
   if (totalId){
@@ -696,19 +821,37 @@ async function loadDashboard(){
     const readyFormula = `AND(OR({Status}="To assemble",{Status}="Wax seal to do"),OR({Envelope in stock}=1,${NO_ENVELOPE_TYPES.map(t => `{Type}="${t}"`).join(",")}),{Assignee for assembly}="")`;
     const assigneeFormula = (name) => `AND({Assignee for assembly}="${name}",NOT(OR({Status}="Done",{Status}="Cancelled",{Status}="For posting",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
 
-    const [ready, hershey, lara, lizette] = await Promise.all([
+    // Solo souvenir orders: not linked to any Invitation record
+    const soloReadyFormula = `AND({Status}="To assemble",{Invitation}="",{Assignee for assembly}="")`;
+    const soloAssigneeFormula = (name) => `AND({Assignee for assembly}="${name}",{Invitation}="",NOT(OR({Status}="Done",{Status}="Canceled",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
+
+    const [ready, hershey, lara, lizette, soloReady, soloHershey, soloLara, soloLizette] = await Promise.all([
       fetchAllRecords(readyFormula),
       fetchAllRecords(assigneeFormula("Hershey")),
       fetchAllRecords(assigneeFormula("Lara")),
-      fetchAllRecords(assigneeFormula("Lizette"))
+      fetchAllRecords(assigneeFormula("Lizette")),
+      fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloReadyFormula),
+      fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Hershey")),
+      fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lara")),
+      fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lizette"))
     ]);
+    [soloReady, soloHershey, soloLara, soloLizette].forEach(list => list.forEach(rec => rec._kind = "souvenir"));
 
-    renderCards("ready-cards", "ready-count", ready, "ready-total");
-    renderCards("hershey-cards", "hershey-count", hershey, "hershey-total");
-    renderCards("lara-cards", "lara-count", lara, "lara-total");
-    renderCards("lizette-cards", "lizette-count", lizette, "lizette-total");
+    const allSouvenirIds = [...ready, ...hershey, ...lara, ...lizette]
+      .flatMap(rec => asList(rec.fields["Souvenir 2"]));
+    SOUVENIR_MAP = await fetchSouvenirsByIds(allSouvenirIds);
 
-    const assignedTotal = sum(hershey, "Total") + sum(lara, "Total") + sum(lizette, "Total");
+    const readyAll = [...ready, ...soloReady];
+    const hersheyAll = [...hershey, ...soloHershey];
+    const laraAll = [...lara, ...soloLara];
+    const lizetteAll = [...lizette, ...soloLizette];
+
+    renderCards("ready-cards", "ready-count", readyAll, "ready-total");
+    renderCards("hershey-cards", "hershey-count", hersheyAll, "hershey-total");
+    renderCards("lara-cards", "lara-count", laraAll, "lara-total");
+    renderCards("lizette-cards", "lizette-count", lizetteAll, "lizette-total");
+
+    const assignedTotal = sum(hersheyAll, "Total") + sum(laraAll, "Total") + sum(lizetteAll, "Total");
     document.getElementById("assigned-total").innerHTML = `<span class="label">Total</span>${fmtMoney(assignedTotal)}`;
 
     setStatus("");
