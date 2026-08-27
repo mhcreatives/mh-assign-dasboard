@@ -25,6 +25,8 @@
     --c-lara-bg:#e9f2fb;
     --c-lizette:#6fb37a;
     --c-lizette-bg:#eaf6ec;
+    --c-printing:#8a6fd6;
+    --c-printing-bg:#f0ecfa;
   }
   *{box-sizing:border-box;}
   body{
@@ -107,11 +109,13 @@
   .section-title.hershey{border-left-color:var(--c-hershey);background:var(--c-hershey-bg);}
   .section-title.lara{border-left-color:var(--c-lara);background:var(--c-lara-bg);}
   .section-title.lizette{border-left-color:var(--c-lizette);background:var(--c-lizette-bg);}
+  .section-title.printing{border-left-color:var(--c-printing);background:var(--c-printing-bg);}
   .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
   .dot.ready{background:var(--c-ready);}
   .dot.hershey{background:var(--c-hershey);}
   .dot.lara{background:var(--c-lara);}
   .dot.lizette{background:var(--c-lizette);}
+  .dot.printing{background:var(--c-printing);}
   .count-badge{
     background:var(--header-bg);border:1px solid var(--border);
     border-radius:999px;padding:1px 9px;font-size:11px;font-weight:600;color:var(--muted);
@@ -145,6 +149,7 @@
   .accent-hershey .card{border-left-color:var(--c-hershey);}
   .accent-lara .card{border-left-color:var(--c-lara);}
   .accent-lizette .card{border-left-color:var(--c-lizette);}
+  .accent-printing .card{border-left-color:var(--c-printing);}
   .card-top{
     margin-bottom:8px;
     padding-bottom:8px;
@@ -360,6 +365,11 @@
 <section>
   <div class="section-title ready"><span class="dot ready"></span> Ready for Assigning <span class="count-badge" id="ready-count">0</span><span class="total-badge" id="ready-total"></span></div>
   <div class="cards accent-ready" id="ready-cards"></div>
+</section>
+
+<section>
+  <div class="section-title printing"><span class="dot printing"></span> Printing <span class="count-badge" id="printing-count">0</span><span class="total-badge" id="printing-total"></span></div>
+  <div class="cards accent-printing" id="printing-cards"></div>
 </section>
 
 <div class="section-title assigned-heading">Assigned Orders <span class="total-badge" id="assigned-total"></span></div>
@@ -937,12 +947,13 @@ async function loadDashboard(){
     const NO_ENVELOPE_TYPES = ["No envelope","Plain White","Plain white","Print only","Booklet","Sliding Invitation"];
     const readyFormula = `AND(OR({Status}="To assemble",{Status}="Wax seal to do"),OR({Envelope in stock}=1,${NO_ENVELOPE_TYPES.map(t => `{Type}="${t}"`).join(",")}),{Assignee for assembly}="")`;
     const assigneeFormula = (name) => `AND({Assignee for assembly}="${name}",NOT(OR({Status}="Done",{Status}="Cancelled",{Status}="For posting",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
+    const printingFormula = `AND({Assignee for assembly}="",{Quota}=1)`;
 
     // Solo souvenir orders: not linked to any Invitation record
     const soloReadyFormula = `AND({Status}="To assemble",{Invitation}="",{Assignee for assembly}="")`;
     const soloAssigneeFormula = (name) => `AND({Assignee for assembly}="${name}",{Invitation}="",NOT(OR({Status}="Done",{Status}="Canceled",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
 
-    const [ready, hershey, lara, lizette, soloReady, soloHershey, soloLara, soloLizette, quotaTotals] = await Promise.all([
+    const [ready, hershey, lara, lizette, soloReady, soloHershey, soloLara, soloLizette, quotaTotals, printing] = await Promise.all([
       fetchAllRecords(readyFormula),
       fetchAllRecords(assigneeFormula("Hershey")),
       fetchAllRecords(assigneeFormula("Lara")),
@@ -951,11 +962,12 @@ async function loadDashboard(){
       fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Hershey")),
       fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lara")),
       fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lizette")),
-      fetchQuotaTotals()
+      fetchQuotaTotals(),
+      fetchAllRecords(printingFormula)
     ]);
     [soloReady, soloHershey, soloLara, soloLizette].forEach(list => list.forEach(rec => rec._kind = "souvenir"));
 
-    const allSouvenirIds = [...ready, ...hershey, ...lara, ...lizette]
+    const allSouvenirIds = [...ready, ...hershey, ...lara, ...lizette, ...printing]
       .flatMap(rec => asList(rec.fields["Souvenir 2"]));
     SOUVENIR_MAP = await fetchSouvenirsByIds(allSouvenirIds);
 
@@ -965,6 +977,7 @@ async function loadDashboard(){
     const lizetteAll = [...lizette, ...soloLizette];
 
     renderCards("ready-cards", "ready-count", readyAll, "ready-total");
+    renderCards("printing-cards", "printing-count", printing, "printing-total");
     renderCards("hershey-cards", "hershey-count", hersheyAll, "hershey-total");
     renderCards("lara-cards", "lara-count", laraAll, "lara-total");
     renderCards("lizette-cards", "lizette-count", lizetteAll, "lizette-total");
