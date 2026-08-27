@@ -280,7 +280,7 @@
   }
   .quota-bar{
     display:grid;
-    grid-template-columns:repeat(3,1fr);
+    grid-template-columns:repeat(2,1fr);
     gap:12px;
     margin-bottom:18px;
   }
@@ -347,12 +347,6 @@
     <div class="quota-label">This Week</div>
     <div class="quota-value" id="quota-weekly-value">—</div>
     <div class="quota-target">of ₱200,000</div>
-  </div>
-  <div class="quota-card" id="quota-assigned">
-    <span class="quota-indicator" id="quota-assigned-indicator"></span>
-    <div class="quota-label">Assigned</div>
-    <div class="quota-value" id="quota-assigned-value">—</div>
-    <div class="quota-target">ready-for-assign cleared</div>
   </div>
 </div>
 
@@ -909,18 +903,6 @@ function setQuotaCard(prefix, value, target, metText, unmetText){
   indicator.classList.add(met ? "met" : "unmet");
 }
 
-function setAssignedCard(remaining){
-  const met = remaining === 0;
-  document.getElementById("quota-assigned-value").textContent = met ? "0" : String(remaining);
-  const card = document.getElementById("quota-assigned");
-  card.classList.remove("met", "unmet");
-  card.classList.add(met ? "met" : "unmet");
-  const indicator = document.getElementById("quota-assigned-indicator");
-  indicator.textContent = met ? "✓ Clear" : `${remaining} pending`;
-  indicator.classList.remove("met", "unmet");
-  indicator.classList.add(met ? "met" : "unmet");
-}
-
 function sum(records, key){
   if (key === "Total") return records.reduce((s, rec) => s + effectiveTotal(rec.fields), 0);
   return records.reduce((s, rec) => s + (Number(rec.fields[key]) || 0), 0);
@@ -992,8 +974,6 @@ async function loadDashboard(){
 
     setQuotaCard("daily", quotaTotals.dailyTotal, DAILY_QUOTA, "✓ Met", "Not yet");
     setQuotaCard("weekly", quotaTotals.weeklyTotal, WEEKLY_QUOTA, "✓ Met", "Not yet");
-    setAssignedCard(readyAll.length);
-
     setStatus("");
   } catch (err) {
     console.error(err);
