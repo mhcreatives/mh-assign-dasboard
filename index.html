@@ -634,7 +634,7 @@ function renderTotalsRow(cols, f){
     .filter(col => col.key !== "Souvenir total" || asList(f["Souvenir 2"]).length > 0)
     .map(col => `<div class="totals-item">
       <span class="k">${col.label}</span>
-      <span class="v">${fmtMoney(f[col.key])}</span>
+      <span class="v">${fmtMoney(col.key === "Total" ? effectiveTotal(f) : f[col.key])}</span>
     </div>`).join("");
   return `<div class="totals-row">${html}</div>`;
 }
@@ -792,7 +792,16 @@ function renderPlainMeta(f){
   return `<div class="plain-row row1">${parts.join(" ")}</div>`;
 }
 
+// The Total formula sometimes computes to 0 (known Airtable issue: stale SF / unlinked Additional Orders).
+// When that happens, fall back to Own Total + Souvenir Total so real order value still counts.
+function effectiveTotal(fields){
+  const total = Number(fields["Total"]) || 0;
+  if (total > 0) return total;
+  return (Number(fields["Own Total"]) || 0) + (Number(fields["Souvenir total"]) || 0);
+}
+
 function sum(records, key){
+  if (key === "Total") return records.reduce((s, rec) => s + effectiveTotal(rec.fields), 0);
   return records.reduce((s, rec) => s + (Number(rec.fields[key]) || 0), 0);
 }
 
