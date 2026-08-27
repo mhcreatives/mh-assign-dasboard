@@ -516,8 +516,8 @@ function setStatus(msg, isError){
   statusLine.className = isError ? "error" : "";
 }
 
-async function fetchAllRecords(formula){
-  return fetchAllFromTable(TABLE_ID, FIELDS, formula, "Date needed");
+async function fetchAllRecords(formula, sortField){
+  return fetchAllFromTable(TABLE_ID, FIELDS, formula, sortField || "Date needed");
 }
 
 async function fetchAllFromTable(tableId, fields, formula, sortField){
@@ -995,7 +995,7 @@ async function loadDashboard(){
       fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lara")),
       fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lizette")),
       fetchQuotaTotals(),
-      fetchAllRecords(printingFormula)
+      fetchAllRecords(printingFormula, "Status")
     ]);
     [soloReady, soloHershey, soloLara, soloLizette].forEach(list => list.forEach(rec => rec._kind = "souvenir"));
 
