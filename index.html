@@ -978,7 +978,7 @@ async function loadDashboard(){
     const NO_ENVELOPE_TYPES = ["No envelope","Plain White","Plain white","Print only","Booklet","Sliding Invitation"];
     const readyFormula = `AND(OR({Status}="To assemble",{Status}="Wax seal to do"),OR({Envelope in stock}=1,${NO_ENVELOPE_TYPES.map(t => `{Type}="${t}"`).join(",")}),{Assignee for assembly}="")`;
     const assigneeFormula = (name) => `AND({Assignee for assembly}="${name}",NOT(OR({Status}="Done",{Status}="Cancelled",{Status}="For posting",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
-    const printingFormula = `AND({Assignee for assembly}="",{Quota}=1)`;
+    const printingFormula = `AND({Assignee for assembly}="",{Quota}=1,NOT(OR({Status}="For posting",{Status}="Cancelled")))`;
 
     // Solo souvenir orders: not linked to any Invitation record
     const soloReadyFormula = `AND({Status}="To assemble",{Invitation}="",{Assignee for assembly}="")`;
