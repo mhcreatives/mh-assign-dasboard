@@ -870,23 +870,23 @@ function localDateStr(d){
 }
 
 async function fetchQuotaTotals(){
-  const weeklyInvFormula = `AND({Status}="Done",IS_SAME({Date shipped},TODAY(),'week'))`;
-  const weeklySouvFormula = `AND({Status}="Done",{Invitation}="",IS_SAME({Date shipped},TODAY(),'week'))`;
+  const weeklyInvFormula = `AND({Status}="Done",IS_SAME({Date finished},TODAY(),'week'))`;
+  const weeklySouvFormula = `AND({Status}="Done",{Invitation}="",IS_SAME({Date finished},TODAY(),'week'))`;
   const [weeklyInv, weeklySouv] = await Promise.all([
-    fetchAllFromTable(TABLE_ID, ["Date shipped","Total","Own Total","Souvenir total"], weeklyInvFormula),
-    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date shipped","Total"], weeklySouvFormula)
+    fetchAllFromTable(TABLE_ID, ["Date finished","Own Total"], weeklyInvFormula),
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], weeklySouvFormula)
   ]);
   const todayStr = localDateStr();
   let weeklyTotal = 0, dailyTotal = 0;
   weeklyInv.forEach(rec => {
-    const val = effectiveTotal(rec.fields);
+    const val = Number(rec.fields["Own Total"]) || 0;
     weeklyTotal += val;
-    if (rec.fields["Date shipped"] === todayStr) dailyTotal += val;
+    if (rec.fields["Date finished"] === todayStr) dailyTotal += val;
   });
   weeklySouv.forEach(rec => {
     const val = Number(rec.fields["Total"]) || 0;
     weeklyTotal += val;
-    if (rec.fields["Date shipped"] === todayStr) dailyTotal += val;
+    if (rec.fields["Date finished"] === todayStr) dailyTotal += val;
   });
   return { weeklyTotal, dailyTotal };
 }
