@@ -517,7 +517,7 @@ async function updateAssignee(recordId, value, selectEl, tableId){
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ fields: { "Assignee for assembly": value } })
+      body: JSON.stringify({ fields: { "Assignee for assembly": value || null } })
     });
     if (!res.ok) {
       const body = await res.text();
