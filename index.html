@@ -327,6 +327,28 @@
   }
   .quota-indicator.met{background:#e3f6e8;color:#1f7a3d;}
   .quota-indicator.unmet{background:#fdf1de;color:#96530f;}
+
+  .tab-nav{
+    display:flex;
+    gap:6px;
+    margin-bottom:16px;
+    border-bottom:1px solid var(--border);
+  }
+  .tab-btn{
+    background:transparent;
+    border:none;
+    border-bottom:2px solid transparent;
+    border-radius:0;
+    color:var(--muted);
+    font-size:13px;
+    font-weight:600;
+    padding:9px 4px;
+    margin-bottom:-1px;
+    cursor:pointer;
+  }
+  .tab-btn + .tab-btn{margin-left:14px;}
+  .tab-btn:hover{color:var(--text);background:transparent;}
+  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
 </style>
 </head>
 <body>
@@ -362,31 +384,40 @@
 
 <div id="status-line">Not connected.</div>
 
-<section>
-  <div class="section-title ready"><span class="dot ready"></span> Ready for Assigning <span class="count-badge" id="ready-count">0</span><span class="total-badge" id="ready-total"></span></div>
-  <div class="cards accent-ready" id="ready-cards"></div>
-</section>
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="assigning">Assigning</button>
+  <button class="tab-btn" data-tab="printing">Printing</button>
+</div>
 
-<section>
-  <div class="section-title printing"><span class="dot printing"></span> Printing <span class="count-badge" id="printing-count">0</span><span class="total-badge" id="printing-total"></span></div>
-  <div class="cards accent-printing" id="printing-cards"></div>
-</section>
-
-<div class="section-title assigned-heading">Assigned Orders <span class="total-badge" id="assigned-total"></span></div>
-<div class="assigned-columns">
+<div class="tab-panel" id="tab-assigning">
   <section>
-    <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total"></span></div>
-    <div class="cards single-col accent-hershey" id="hershey-cards"></div>
+    <div class="section-title ready"><span class="dot ready"></span> Ready for Assigning <span class="count-badge" id="ready-count">0</span><span class="total-badge" id="ready-total"></span></div>
+    <div class="cards accent-ready" id="ready-cards"></div>
   </section>
 
-  <section>
-    <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total"></span></div>
-    <div class="cards single-col accent-lara" id="lara-cards"></div>
-  </section>
+  <div class="section-title assigned-heading">Assigned Orders <span class="total-badge" id="assigned-total"></span></div>
+  <div class="assigned-columns">
+    <section>
+      <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total"></span></div>
+      <div class="cards single-col accent-hershey" id="hershey-cards"></div>
+    </section>
 
+    <section>
+      <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total"></span></div>
+      <div class="cards single-col accent-lara" id="lara-cards"></div>
+    </section>
+
+    <section>
+      <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total"></span></div>
+      <div class="cards single-col accent-lizette" id="lizette-cards"></div>
+    </section>
+  </div>
+</div>
+
+<div class="tab-panel" id="tab-printing" hidden>
   <section>
-    <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total"></span></div>
-    <div class="cards single-col accent-lizette" id="lizette-cards"></div>
+    <div class="section-title printing"><span class="dot printing"></span> Printing <span class="count-badge" id="printing-count">0</span><span class="total-badge" id="printing-total"></span></div>
+    <div class="cards accent-printing" id="printing-cards"></div>
   </section>
 </div>
 
@@ -1000,6 +1031,15 @@ document.getElementById("save-btn").addEventListener("click", () => {
   loadDashboard();
 });
 document.getElementById("refresh-btn").addEventListener("click", loadDashboard);
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.hidden = true);
+    btn.classList.add("active");
+    document.getElementById(`tab-${btn.dataset.tab}`).hidden = false;
+  });
+});
 
 window.addEventListener("DOMContentLoaded", () => {
   const existing = getToken();
