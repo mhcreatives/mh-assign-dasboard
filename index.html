@@ -6,34 +6,35 @@
 <title>MH Creatives — Order Dashboard</title>
 <style>
   :root{
-    --bg:#f6f7f9;
-    --panel:#ffffff;
-    --border:#e1e4e8;
-    --border-strong:#d0d4d9;
-    --text:#1d2129;
-    --muted:#6b7280;
-    --accent:#2d7ff9;
-    --accent-dark:#1f66d0;
-    --header-bg:#f8f9fb;
-    --row-alt:#fafbfc;
-    --row-hover:#f0f6ff;
+    /* Dark theme matched to the main MH Dashboard (mh-dashboard repo) */
+    --bg:#0a0a0a;
+    --panel:#141414;
+    --border:#1e1e1e;
+    --border-strong:#2a2a2a;
+    --text:#f0f0f0;
+    --muted:#888;
+    --accent:#ff6b35;
+    --accent-dark:#e55a2b;
+    --header-bg:#141414;
+    --row-alt:#111;
+    --row-hover:#1a1a1a;
     --c-ready:#e8b64a;
-    --c-ready-bg:#fef6e3;
+    --c-ready-bg:#3a2f10;
     --c-hershey:#e07a7a;
-    --c-hershey-bg:#fdecec;
+    --c-hershey-bg:#3a1e1e;
     --c-lara:#5b9bd5;
-    --c-lara-bg:#e9f2fb;
+    --c-lara-bg:#152a3a;
     --c-lizette:#6fb37a;
-    --c-lizette-bg:#eaf6ec;
+    --c-lizette-bg:#16301e;
     --c-printing:#8a6fd6;
-    --c-printing-bg:#f0ecfa;
+    --c-printing-bg:#25203a;
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:
-      radial-gradient(circle at 0% 0%, rgba(45,127,249,0.06), transparent 40%),
+      radial-gradient(circle at 0% 0%, rgba(255,107,53,0.08), transparent 40%),
       radial-gradient(circle at 100% 0%, rgba(224,122,122,0.06), transparent 40%),
       var(--bg);
     color:var(--text);
@@ -52,7 +53,7 @@
     font-size:20px;
     margin:0;
     letter-spacing:-0.01em;
-    background:linear-gradient(90deg,#2d7ff9,#e07a7a);
+    background:linear-gradient(90deg,#ff6b35,#e07a7a);
     -webkit-background-clip:text;
     background-clip:text;
     color:transparent;
@@ -89,9 +90,9 @@
   button.secondary{background:transparent;color:var(--muted);border:1px solid var(--border-strong);}
   button.secondary:hover{background:var(--panel);color:var(--text);}
   #status-line{font-size:11.5px;color:var(--muted);margin-bottom:14px;}
-  #status-line.error{color:#c0362c;}
+  #status-line.error{color:#f87171;}
   .setup-note{
-    background:#fff8ea;border:1px solid #f0dfae;color:#6b5527;
+    background:#2a2410;border:1px solid #4a3f1a;color:#e8c96a;
     font-size:12px;padding:9px 13px;border-radius:6px;margin-bottom:14px;display:none;
   }
 
@@ -173,8 +174,8 @@
     font-weight:700;
     text-transform:uppercase;
     letter-spacing:.03em;
-    color:#8a6d16;
-    background:#fbecc0;
+    color:#e8c96a;
+    background:#3a2f10;
     border-radius:5px;
     padding:2px 7px;
     white-space:nowrap;
@@ -255,7 +256,7 @@
     width:16px;height:16px;
     border-radius:4px;
   }
-  .check.yes{background:#2fa84f;color:#fff;}
+  .check.yes{background:#4ade80;color:#0a0a0a;}
   .check.no{border:1px solid var(--border-strong);}
   .empty{
     color:var(--muted);
@@ -300,8 +301,8 @@
     padding:12px 16px;
     position:relative;
   }
-  .quota-card.met{border-left-color:#2fa84f;}
-  .quota-card.unmet{border-left-color:#e0a53a;}
+  .quota-card.met{border-left-color:#4ade80;}
+  .quota-card.unmet{border-left-color:#f5a524;}
   .quota-label{
     font-size:11px;
     font-weight:700;
@@ -325,8 +326,8 @@
     padding:2px 9px;
     border-radius:999px;
   }
-  .quota-indicator.met{background:#e3f6e8;color:#1f7a3d;}
-  .quota-indicator.unmet{background:#fdf1de;color:#96530f;}
+  .quota-indicator.met{background:#16301e;color:#4ade80;}
+  .quota-indicator.unmet{background:#3a2f10;color:#f5a524;}
 
   .tab-nav{
     display:flex;
@@ -461,16 +462,16 @@ const FIELDS = COLUMNS.map(c => c.key);
 
 // Airtable hue token -> pastel pill color
 const HUE_HEX = {
-  blue:  { bg:"#d6e6ff", fg:"#1f5fa8" },
-  cyan:  { bg:"#cdf1f4", fg:"#0f6675" },
-  teal:  { bg:"#c7f3e8", fg:"#0b6e5a" },
-  green: { bg:"#d9f2d3", fg:"#2f6c2c" },
-  yellow:{ bg:"#fbecc0", fg:"#8a6d16" },
-  orange:{ bg:"#ffe2c4", fg:"#96530f" },
-  red:   { bg:"#ffd7d7", fg:"#a13a3a" },
-  pink:  { bg:"#fbd7e7", fg:"#a13a6f" },
-  purple:{ bg:"#e8d7fb", fg:"#6b3aa1" },
-  gray:  { bg:"#e4e2dd", fg:"#56514a" }
+  blue:  { bg:"#152a3a", fg:"#6fb1f5" },
+  cyan:  { bg:"#0f2e33", fg:"#5fd6e0" },
+  teal:  { bg:"#0f302a", fg:"#5fe0bd" },
+  green: { bg:"#16301e", fg:"#7bd66f" },
+  yellow:{ bg:"#3a2f10", fg:"#e8c96a" },
+  orange:{ bg:"#3a2410", fg:"#f5a95f" },
+  red:   { bg:"#3a1e1e", fg:"#e07a7a" },
+  pink:  { bg:"#3a1e2c", fg:"#e07ab0" },
+  purple:{ bg:"#25203a", fg:"#b28fe8" },
+  gray:  { bg:"#2a2a2a", fg:"#aaa" }
 };
 function hueFromToken(token){
   if (!token) return "gray";
