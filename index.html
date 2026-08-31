@@ -286,7 +286,7 @@
   }
   .quota-bar{
     display:grid;
-    grid-template-columns:repeat(2,1fr);
+    grid-template-columns:repeat(3,1fr);
     gap:12px;
     margin-bottom:18px;
   }
@@ -374,6 +374,12 @@
     <span class="quota-indicator" id="quota-weekly-indicator"></span>
     <div class="quota-label">This Week</div>
     <div class="quota-value" id="quota-weekly-value">—</div>
+    <div class="quota-target">of ₱200,000</div>
+  </div>
+  <div class="quota-card" id="quota-lastweek">
+    <span class="quota-indicator" id="quota-lastweek-indicator"></span>
+    <div class="quota-label">Last Week</div>
+    <div class="quota-value" id="quota-lastweek-value">—</div>
     <div class="quota-target">of ₱200,000</div>
   </div>
 </div>
@@ -914,10 +920,16 @@ function localDateStr(d){
 async function fetchQuotaTotals(){
   const weeklyInvFormula = `IS_SAME({Date finished},TODAY(),'week')`;
   const weeklySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'week'))`;
-  const [weeklyInv, weeklySouv] = await Promise.all([
+  const lastWeekInvFormula = `IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week')`;
+  const lastWeekSouvFormula = `AND({Invitation}="",IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week'))`;
+
+  const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv] = await Promise.all([
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], weeklyInvFormula),
-    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], weeklySouvFormula)
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], weeklySouvFormula),
+    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], lastWeekInvFormula),
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], lastWeekSouvFormula)
   ]);
+
   const todayStr = localDateStr();
   let weeklyTotal = 0, dailyTotal = 0;
   weeklyInv.forEach(rec => {
@@ -930,7 +942,12 @@ async function fetchQuotaTotals(){
     weeklyTotal += val;
     if (rec.fields["Date finished"] === todayStr) dailyTotal += val;
   });
-  return { weeklyTotal, dailyTotal };
+
+  let lastWeekTotal = 0;
+  lastWeekInv.forEach(rec => { lastWeekTotal += effectiveTotal(rec.fields); });
+  lastWeekSouv.forEach(rec => { lastWeekTotal += Number(rec.fields["Total"]) || 0; });
+
+  return { weeklyTotal, dailyTotal, lastWeekTotal };
 }
 
 function setQuotaCard(prefix, value, target, metText, unmetText){
@@ -1020,6 +1037,7 @@ async function loadDashboard(){
 
     setQuotaCard("daily", quotaTotals.dailyTotal, DAILY_QUOTA, "✓ Met", "Not yet");
     setQuotaCard("weekly", quotaTotals.weeklyTotal, WEEKLY_QUOTA, "✓ Met", "Not yet");
+    setQuotaCard("lastweek", quotaTotals.lastWeekTotal, WEEKLY_QUOTA, "✓ Met", "Below quota");
     setStatus("");
   } catch (err) {
     console.error(err);
