@@ -98,7 +98,7 @@
 
   section{margin-bottom:26px;}
   .section-title{
-    display:flex;align-items:center;gap:8px;
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
     font-size:13px;font-weight:700;
     color:var(--text);margin-bottom:10px;
     padding:8px 12px;
@@ -332,6 +332,8 @@
   .quota-indicator.met{background:#16301e;color:#4ade80;}
   .quota-indicator.unmet{background:#3a2f10;color:#f5a524;}
   .assignee-quota{
+    flex-basis:100%;
+    width:fit-content;
     font-size:11px;
     font-weight:700;
     padding:2px 9px;
