@@ -286,9 +286,12 @@
   }
   .quota-bar{
     display:grid;
-    grid-template-columns:repeat(3,1fr);
+    grid-template-columns:repeat(4,1fr);
     gap:12px;
     margin-bottom:18px;
+  }
+  @media (max-width:960px){
+    .quota-bar{grid-template-columns:repeat(2,1fr);}
   }
   @media (max-width:700px){
     .quota-bar{grid-template-columns:1fr;}
@@ -364,6 +367,11 @@
 </header>
 
 <div class="quota-bar" id="quota-bar">
+  <div class="quota-card" id="quota-monthly">
+    <div class="quota-label">This Month</div>
+    <div class="quota-value" id="quota-monthly-value">—</div>
+    <div class="quota-target">total finished so far</div>
+  </div>
   <div class="quota-card" id="quota-daily">
     <span class="quota-indicator" id="quota-daily-indicator"></span>
     <div class="quota-label">Today</div>
@@ -922,12 +930,16 @@ async function fetchQuotaTotals(){
   const weeklySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'week'))`;
   const lastWeekInvFormula = `IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week')`;
   const lastWeekSouvFormula = `AND({Invitation}="",IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week'))`;
+  const monthlyInvFormula = `IS_SAME({Date finished},TODAY(),'month')`;
+  const monthlySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'month'))`;
 
-  const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv] = await Promise.all([
+  const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv, monthlyInv, monthlySouv] = await Promise.all([
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], weeklyInvFormula),
     fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], weeklySouvFormula),
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], lastWeekInvFormula),
-    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], lastWeekSouvFormula)
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], lastWeekSouvFormula),
+    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], monthlyInvFormula),
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], monthlySouvFormula)
   ]);
 
   const todayStr = localDateStr();
@@ -947,7 +959,11 @@ async function fetchQuotaTotals(){
   lastWeekInv.forEach(rec => { lastWeekTotal += effectiveTotal(rec.fields); });
   lastWeekSouv.forEach(rec => { lastWeekTotal += Number(rec.fields["Total"]) || 0; });
 
-  return { weeklyTotal, dailyTotal, lastWeekTotal };
+  let monthlyTotal = 0;
+  monthlyInv.forEach(rec => { monthlyTotal += effectiveTotal(rec.fields); });
+  monthlySouv.forEach(rec => { monthlyTotal += Number(rec.fields["Total"]) || 0; });
+
+  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal };
 }
 
 function setQuotaCard(prefix, value, target, metText, unmetText){
@@ -1038,6 +1054,7 @@ async function loadDashboard(){
     setQuotaCard("daily", quotaTotals.dailyTotal, DAILY_QUOTA, "✓ Met", "Not yet");
     setQuotaCard("weekly", quotaTotals.weeklyTotal, WEEKLY_QUOTA, "✓ Met", "Not yet");
     setQuotaCard("lastweek", quotaTotals.lastWeekTotal, WEEKLY_QUOTA, "✓ Met", "Below quota");
+    document.getElementById("quota-monthly-value").textContent = fmtMoney(quotaTotals.monthlyTotal);
     setStatus("");
   } catch (err) {
     console.error(err);
