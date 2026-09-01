@@ -425,17 +425,17 @@
   </div>
   <div class="assigned-columns">
     <section>
-      <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total"></span><span class="assignee-quota" id="hershey-quota"></span></div>
+      <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total-all"></span><span class="total-badge" id="hershey-total"></span><span class="assignee-quota" id="hershey-quota"></span></div>
       <div class="cards single-col accent-hershey" id="hershey-cards"></div>
     </section>
 
     <section>
-      <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total"></span><span class="assignee-quota" id="lara-quota"></span></div>
+      <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total-all"></span><span class="total-badge" id="lara-total"></span><span class="assignee-quota" id="lara-quota"></span></div>
       <div class="cards single-col accent-lara" id="lara-cards"></div>
     </section>
 
     <section>
-      <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total"></span><span class="assignee-quota" id="lizette-quota"></span></div>
+      <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total-all"></span><span class="total-badge" id="lizette-total"></span><span class="assignee-quota" id="lizette-quota"></span></div>
       <div class="cards single-col accent-lizette" id="lizette-cards"></div>
     </section>
   </div>
@@ -959,6 +959,7 @@ async function fetchQuotaTotals(){
   let weeklyTotal = 0, dailyTotal = 0;
   let doneTodayTotal = 0, doneTodayCount = 0;
   const assigneeDaily = { Hershey: 0, Lara: 0, Lizette: 0 };
+  const assigneeDoneCount = { Hershey: 0, Lara: 0, Lizette: 0 };
   weeklyInv.forEach(rec => {
     const val = effectiveTotal(rec.fields);
     weeklyTotal += val;
@@ -967,6 +968,7 @@ async function fetchQuotaTotals(){
       const assignee = rec.fields["Assignee for assembly"];
       if (assignee in assigneeDaily) {
         assigneeDaily[assignee] += val;
+        assigneeDoneCount[assignee] += 1;
         doneTodayTotal += val;
         doneTodayCount += 1;
       }
@@ -980,6 +982,7 @@ async function fetchQuotaTotals(){
       const assignee = rec.fields["Assignee for assembly"];
       if (assignee in assigneeDaily) {
         assigneeDaily[assignee] += val;
+        assigneeDoneCount[assignee] += 1;
         doneTodayTotal += val;
         doneTodayCount += 1;
       }
@@ -994,7 +997,7 @@ async function fetchQuotaTotals(){
   monthlyInv.forEach(rec => { monthlyTotal += effectiveTotal(rec.fields); });
   monthlySouv.forEach(rec => { monthlyTotal += Number(rec.fields["Total"]) || 0; });
 
-  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, doneTodayTotal, doneTodayCount };
+  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, assigneeDoneCount, doneTodayTotal, doneTodayCount };
 }
 
 function setQuotaCard(prefix, value, target, metText, unmetText){
@@ -1024,7 +1027,7 @@ function sum(records, key){
   return records.reduce((s, rec) => s + (Number(rec.fields[key]) || 0), 0);
 }
 
-function renderCards(containerId, countId, records, totalId){
+function renderCards(containerId, countId, records, totalId, label){
   const container = document.getElementById(containerId);
   container.innerHTML = "";
   document.getElementById(countId).textContent = records.length;
@@ -1036,7 +1039,7 @@ function renderCards(containerId, countId, records, totalId){
 
   if (totalId){
     const totalEl = document.getElementById(totalId);
-    totalEl.innerHTML = `<span class="label">Total</span>${fmtMoney(sum(records, "Total"))}`;
+    totalEl.innerHTML = `<span class="label">${label || "Total"}</span>${fmtMoney(sum(records, "Total"))}`;
   }
 }
 
@@ -1085,9 +1088,9 @@ async function loadDashboard(){
 
     renderCards("ready-cards", "ready-count", readyAll, "ready-total");
     renderCards("printing-cards", "printing-count", printing, "printing-total");
-    renderCards("hershey-cards", "hershey-count", hersheyAll, "hershey-total");
-    renderCards("lara-cards", "lara-count", laraAll, "lara-total");
-    renderCards("lizette-cards", "lizette-count", lizetteAll, "lizette-total");
+    renderCards("hershey-cards", "hershey-count", hersheyAll, "hershey-total", "Pending");
+    renderCards("lara-cards", "lara-count", laraAll, "lara-total", "Pending");
+    renderCards("lizette-cards", "lizette-count", lizetteAll, "lizette-total", "Pending");
 
     // Pending = the orders actually shown in the assignee columns below (not yet finished)
     const pendingCount = hersheyAll.length + laraAll.length + lizetteAll.length;
@@ -1104,6 +1107,17 @@ async function loadDashboard(){
     setBadge("assigned-total-all", "Total", totalCount, totalValue);
     setBadge("assigned-total-done", "Done", doneCount, doneTotal);
     setBadge("assigned-total-pending", "Pending", pendingCount, pendingTotal);
+
+    // Per-assignee Total = their pending cards + their orders done today
+    const perAssignee = { Hershey: hersheyAll, Lara: laraAll, Lizette: lizetteAll };
+    Object.entries(perAssignee).forEach(([name, records]) => {
+      const key = name.toLowerCase();
+      const aPending = records.length;
+      const aPendingTotal = sum(records, "Total");
+      const aDone = quotaTotals.assigneeDoneCount[name] || 0;
+      const aDoneTotal = quotaTotals.assigneeDaily[name] || 0;
+      setBadge(`${key}-total-all`, "Total", aPending + aDone, aPendingTotal + aDoneTotal);
+    });
 
     setQuotaCard("daily", quotaTotals.dailyTotal, DAILY_QUOTA, "✓ Met", "Not yet");
     setQuotaCard("weekly", quotaTotals.weeklyTotal, WEEKLY_QUOTA, "✓ Met", "Not yet");
