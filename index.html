@@ -275,6 +275,7 @@
     border:1px solid var(--border-strong);
     border-radius:999px;
     padding:4px 14px;
+    white-space:nowrap;
   }
   .total-badge .label{
     font-size:11px;
@@ -1041,7 +1042,7 @@ function renderCards(containerId, countId, records, totalId, label){
 
   if (totalId){
     const totalEl = document.getElementById(totalId);
-    totalEl.innerHTML = `<span class="label">${label || "Total"}</span>${fmtMoney(sum(records, "Total"))}`;
+    totalEl.innerHTML = `<span class="label">${label || "Total"}</span>${records.length} &middot; ${fmtMoney(sum(records, "Total"))}`;
   }
 }
 
