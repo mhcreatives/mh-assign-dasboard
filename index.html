@@ -331,6 +331,14 @@
   }
   .quota-indicator.met{background:#16301e;color:#4ade80;}
   .quota-indicator.unmet{background:#3a2f10;color:#f5a524;}
+  .assignee-quota{
+    font-size:11px;
+    font-weight:700;
+    padding:2px 9px;
+    border-radius:999px;
+  }
+  .assignee-quota.met{background:#16301e;color:#4ade80;}
+  .assignee-quota.unmet{background:#3a2f10;color:#f5a524;}
 
   .tab-nav{
     display:flex;
@@ -410,20 +418,24 @@
     <div class="cards accent-ready" id="ready-cards"></div>
   </section>
 
-  <div class="section-title assigned-heading">Assigned Orders <span class="total-badge" id="assigned-total"></span></div>
+  <div class="section-title assigned-heading">Assigned Orders
+    <span class="total-badge" id="assigned-total-all"></span>
+    <span class="total-badge" id="assigned-total-done"></span>
+    <span class="total-badge" id="assigned-total-pending"></span>
+  </div>
   <div class="assigned-columns">
     <section>
-      <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total"></span></div>
+      <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total"></span><span class="assignee-quota" id="hershey-quota"></span></div>
       <div class="cards single-col accent-hershey" id="hershey-cards"></div>
     </section>
 
     <section>
-      <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total"></span></div>
+      <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total"></span><span class="assignee-quota" id="lara-quota"></span></div>
       <div class="cards single-col accent-lara" id="lara-cards"></div>
     </section>
 
     <section>
-      <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total"></span></div>
+      <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total"></span><span class="assignee-quota" id="lizette-quota"></span></div>
       <div class="cards single-col accent-lizette" id="lizette-cards"></div>
     </section>
   </div>
@@ -444,6 +456,7 @@ let SOUVENIR_MAP = {};
 const SOLO_SOUVENIR_FIELDS = ["FB Name","Meta link","Priority","Area","Event date","Assignee for assembly","Status","Type","QTY","Total","DP","Balance","Details"];
 const DAILY_QUOTA = 40000;
 const WEEKLY_QUOTA = 200000;
+const ASSIGNEE_DAILY_QUOTA = { Hershey: 14000, Lara: 14000, Lizette: 12000 };
 
 // Columns rendered, in order. type: text|pill|check|notes
 const COLUMNS = [
@@ -934,8 +947,8 @@ async function fetchQuotaTotals(){
   const monthlySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'month'))`;
 
   const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv, monthlyInv, monthlySouv] = await Promise.all([
-    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], weeklyInvFormula),
-    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], weeklySouvFormula),
+    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], weeklyInvFormula),
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total","Assignee for assembly"], weeklySouvFormula),
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], lastWeekInvFormula),
     fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], lastWeekSouvFormula),
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], monthlyInvFormula),
@@ -944,15 +957,33 @@ async function fetchQuotaTotals(){
 
   const todayStr = localDateStr();
   let weeklyTotal = 0, dailyTotal = 0;
+  let doneTodayTotal = 0, doneTodayCount = 0;
+  const assigneeDaily = { Hershey: 0, Lara: 0, Lizette: 0 };
   weeklyInv.forEach(rec => {
     const val = effectiveTotal(rec.fields);
     weeklyTotal += val;
-    if (rec.fields["Date finished"] === todayStr) dailyTotal += val;
+    if (rec.fields["Date finished"] === todayStr) {
+      dailyTotal += val;
+      const assignee = rec.fields["Assignee for assembly"];
+      if (assignee in assigneeDaily) {
+        assigneeDaily[assignee] += val;
+        doneTodayTotal += val;
+        doneTodayCount += 1;
+      }
+    }
   });
   weeklySouv.forEach(rec => {
     const val = Number(rec.fields["Total"]) || 0;
     weeklyTotal += val;
-    if (rec.fields["Date finished"] === todayStr) dailyTotal += val;
+    if (rec.fields["Date finished"] === todayStr) {
+      dailyTotal += val;
+      const assignee = rec.fields["Assignee for assembly"];
+      if (assignee in assigneeDaily) {
+        assigneeDaily[assignee] += val;
+        doneTodayTotal += val;
+        doneTodayCount += 1;
+      }
+    }
   });
 
   let lastWeekTotal = 0;
@@ -963,7 +994,7 @@ async function fetchQuotaTotals(){
   monthlyInv.forEach(rec => { monthlyTotal += effectiveTotal(rec.fields); });
   monthlySouv.forEach(rec => { monthlyTotal += Number(rec.fields["Total"]) || 0; });
 
-  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal };
+  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, doneTodayTotal, doneTodayCount };
 }
 
 function setQuotaCard(prefix, value, target, metText, unmetText){
@@ -976,6 +1007,16 @@ function setQuotaCard(prefix, value, target, metText, unmetText){
   indicator.textContent = met ? metText : unmetText;
   indicator.classList.remove("met", "unmet");
   indicator.classList.add(met ? "met" : "unmet");
+}
+
+function setAssigneeQuotaBadge(name, value){
+  const target = ASSIGNEE_DAILY_QUOTA[name];
+  const el = document.getElementById(`${name.toLowerCase()}-quota`);
+  if (!el || !target) return;
+  const met = value >= target;
+  el.textContent = `${fmtMoney(value)} / ${fmtMoney(target)} today`;
+  el.classList.remove("met", "unmet");
+  el.classList.add(met ? "met" : "unmet");
 }
 
 function sum(records, key){
@@ -1048,13 +1089,29 @@ async function loadDashboard(){
     renderCards("lara-cards", "lara-count", laraAll, "lara-total");
     renderCards("lizette-cards", "lizette-count", lizetteAll, "lizette-total");
 
-    const assignedTotal = sum(hersheyAll, "Total") + sum(laraAll, "Total") + sum(lizetteAll, "Total");
-    document.getElementById("assigned-total").innerHTML = `<span class="label">Total</span>${fmtMoney(assignedTotal)}`;
+    // Pending = the orders actually shown in the assignee columns below (not yet finished)
+    const pendingCount = hersheyAll.length + laraAll.length + lizetteAll.length;
+    const pendingTotal = sum(hersheyAll, "Total") + sum(laraAll, "Total") + sum(lizetteAll, "Total");
+    // Done today = assigned orders finished today (Date finished), not shown as cards below
+    const doneCount = quotaTotals.doneTodayCount;
+    const doneTotal = quotaTotals.doneTodayTotal;
+    const totalCount = pendingCount + doneCount;
+    const totalValue = pendingTotal + doneTotal;
+
+    const setBadge = (id, label, count, value) => {
+      document.getElementById(id).innerHTML = `<span class="label">${label}</span>${count} &middot; ${fmtMoney(value)}`;
+    };
+    setBadge("assigned-total-all", "Total", totalCount, totalValue);
+    setBadge("assigned-total-done", "Done", doneCount, doneTotal);
+    setBadge("assigned-total-pending", "Pending", pendingCount, pendingTotal);
 
     setQuotaCard("daily", quotaTotals.dailyTotal, DAILY_QUOTA, "✓ Met", "Not yet");
     setQuotaCard("weekly", quotaTotals.weeklyTotal, WEEKLY_QUOTA, "✓ Met", "Not yet");
     setQuotaCard("lastweek", quotaTotals.lastWeekTotal, WEEKLY_QUOTA, "✓ Met", "Below quota");
     document.getElementById("quota-monthly-value").textContent = fmtMoney(quotaTotals.monthlyTotal);
+    Object.keys(ASSIGNEE_DAILY_QUOTA).forEach(name => {
+      setAssigneeQuotaBadge(name, quotaTotals.assigneeDaily[name] || 0);
+    });
     setStatus("");
   } catch (err) {
     console.error(err);
