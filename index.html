@@ -345,6 +345,9 @@
     margin-top:2px;
   }
   .quota-target{font-size:11.5px;color:var(--muted);margin-top:1px;}
+  .quota-pace{font-size:11px;font-weight:700;margin-top:6px;}
+  .quota-pace.met{color:#4ade80;}
+  .quota-pace.unmet{color:#f5a524;}
   .quota-indicator{
     position:absolute;
     top:12px;
@@ -489,6 +492,7 @@
     <div class="quota-label">This Week</div>
     <div class="quota-value" id="quota-weekly-value">—</div>
     <div class="quota-target">of ₱200,000</div>
+    <div class="quota-pace" id="quota-weekly-pace"></div>
   </div>
   <div class="quota-card" id="quota-lastweek">
     <span class="quota-indicator" id="quota-lastweek-indicator"></span>
@@ -1096,12 +1100,17 @@ async function fetchQuotaTotals(){
   // Exclude "Additional order" children: their value is already rolled into the parent's Total via
   // the Additional Orders Total rollup, so counting them separately here would double-count revenue.
   const notAdditional = `NOT({Additional order})`;
-  const weeklyInvFormula = `AND(IS_SAME({Date finished},TODAY(),'week'),${notAdditional})`;
-  const weeklySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'week'))`;
-  const lastWeekInvFormula = `AND(IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week'),${notAdditional})`;
-  const lastWeekSouvFormula = `AND({Invitation}="",IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week'))`;
-  const monthlyInvFormula = `AND(IS_SAME({Date finished},TODAY(),'month'),${notAdditional})`;
-  const monthlySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'month'))`;
+  // Only these statuses count as "finished" production for revenue purposes.
+  const INV_FINISHED_STATUSES = ["For posting", "To Ship", "For packaging", "Photo"];
+  const SOUV_FINISHED_STATUSES = ["To Ship", "For packaging", "Photo"];
+  const invStatusFilter = `OR(${INV_FINISHED_STATUSES.map(s => `{Status}="${s}"`).join(",")})`;
+  const souvStatusFilter = `OR(${SOUV_FINISHED_STATUSES.map(s => `{Status}="${s}"`).join(",")})`;
+  const weeklyInvFormula = `AND(IS_SAME({Date finished},TODAY(),'week'),${notAdditional},${invStatusFilter})`;
+  const weeklySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'week'),${souvStatusFilter})`;
+  const lastWeekInvFormula = `AND(IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week'),${notAdditional},${invStatusFilter})`;
+  const lastWeekSouvFormula = `AND({Invitation}="",IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week'),${souvStatusFilter})`;
+  const monthlyInvFormula = `AND(IS_SAME({Date finished},TODAY(),'month'),${notAdditional},${invStatusFilter})`;
+  const monthlySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'month'),${souvStatusFilter})`;
 
   const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv, monthlyInv, monthlySouv] = await Promise.all([
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], weeklyInvFormula),
@@ -1154,7 +1163,16 @@ async function fetchQuotaTotals(){
   monthlyInv.forEach(rec => { monthlyTotal += effectiveTotal(rec.fields); });
   monthlySouv.forEach(rec => { monthlyTotal += Number(rec.fields["Total"]) || 0; });
 
-  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, assigneeDoneCount, doneTodayTotal, doneTodayCount };
+  // Weekly quota (200,000) assumes 5 working days (Mon-Fri) at the daily quota (40,000) each.
+  // Pace = how much should have been finished by today, so a short week-in-progress isn't flagged as behind.
+  const jsWeekday = new Date().getDay(); // 0=Sun..6=Sat
+  const isoWeekday = jsWeekday === 0 ? 7 : jsWeekday; // 1=Mon..7=Sun
+  const weekdaysElapsed = Math.min(isoWeekday, 5);
+  const weekPaceQuota = weekdaysElapsed * DAILY_QUOTA;
+  const weekPaceMet = weeklyTotal >= weekPaceQuota;
+  const weekPaceGap = weekPaceMet ? 0 : weekPaceQuota - weeklyTotal;
+
+  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, assigneeDoneCount, doneTodayTotal, doneTodayCount, weekPaceQuota, weekPaceMet, weekPaceGap, weekdaysElapsed };
 }
 
 function setQuotaCard(prefix, value, target, metText, unmetText){
@@ -1284,6 +1302,16 @@ async function loadDashboard(){
     setQuotaCard("daily", quotaTotals.dailyTotal, DAILY_QUOTA, "✓ Met", "Not yet");
     setQuotaCard("weekly", quotaTotals.weeklyTotal, WEEKLY_QUOTA, "✓ Met", "Not yet");
     setQuotaCard("lastweek", quotaTotals.lastWeekTotal, WEEKLY_QUOTA, "✓ Met", "Below quota");
+
+    const paceEl = document.getElementById("quota-weekly-pace");
+    paceEl.classList.remove("met", "unmet");
+    if (quotaTotals.weekPaceMet) {
+      paceEl.textContent = `✓ On pace through day ${quotaTotals.weekdaysElapsed} (${fmtMoney(quotaTotals.weekPaceQuota)})`;
+      paceEl.classList.add("met");
+    } else {
+      paceEl.textContent = `Behind pace by ${fmtMoney(quotaTotals.weekPaceGap)} (day ${quotaTotals.weekdaysElapsed} target: ${fmtMoney(quotaTotals.weekPaceQuota)})`;
+      paceEl.classList.add("unmet");
+    }
     document.getElementById("quota-monthly-value").textContent = fmtMoney(quotaTotals.monthlyTotal);
     Object.keys(ASSIGNEE_DAILY_QUOTA).forEach(name => {
       setAssigneeQuotaBadge(name, quotaTotals.assigneeDaily[name] || 0);
