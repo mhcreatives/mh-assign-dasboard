@@ -1093,11 +1093,14 @@ function localDateStr(d){
 }
 
 async function fetchQuotaTotals(){
-  const weeklyInvFormula = `IS_SAME({Date finished},TODAY(),'week')`;
+  // Exclude "Additional order" children: their value is already rolled into the parent's Total via
+  // the Additional Orders Total rollup, so counting them separately here would double-count revenue.
+  const notAdditional = `NOT({Additional order})`;
+  const weeklyInvFormula = `AND(IS_SAME({Date finished},TODAY(),'week'),${notAdditional})`;
   const weeklySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'week'))`;
-  const lastWeekInvFormula = `IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week')`;
+  const lastWeekInvFormula = `AND(IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week'),${notAdditional})`;
   const lastWeekSouvFormula = `AND({Invitation}="",IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week'))`;
-  const monthlyInvFormula = `IS_SAME({Date finished},TODAY(),'month')`;
+  const monthlyInvFormula = `AND(IS_SAME({Date finished},TODAY(),'month'),${notAdditional})`;
   const monthlySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'month'))`;
 
   const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv, monthlyInv, monthlySouv] = await Promise.all([
