@@ -547,7 +547,7 @@
 
 <div class="tab-panel" id="tab-printing" hidden>
   <section>
-    <div class="section-title printing"><span class="dot printing"></span> Printing <span class="count-badge" id="printing-count">0</span><span class="total-badge" id="printing-total"></span></div>
+    <div class="section-title printing"><span class="dot printing"></span> Printing <span class="count-badge" id="printing-count">0</span><span class="total-badge" id="printing-total"></span><span class="total-badge" id="printing-ready-total"></span><span class="total-badge" id="printing-combined-total"></span></div>
     <div class="cards accent-printing" id="printing-cards"></div>
   </section>
 </div>
@@ -1245,6 +1245,11 @@ async function loadDashboard(){
     renderCards("hershey-cards", "hershey-count", hersheyAll, "hershey-total", "Pending");
     renderCards("lara-cards", "lara-count", laraAll, "lara-total", "Pending");
     renderCards("lizette-cards", "lizette-count", lizetteAll, "lizette-total", "Pending");
+
+    const readyTotalValue = sum(readyAll, "Total");
+    const printingTotalValue = sum(printing, "Total");
+    document.getElementById("printing-ready-total").innerHTML = `<span class="label">Ready for Assigning</span>${readyAll.length} &middot; ${fmtMoney(readyTotalValue)}`;
+    document.getElementById("printing-combined-total").innerHTML = `<span class="label">Combined</span>${readyAll.length + printing.length} &middot; ${fmtMoney(readyTotalValue + printingTotalValue)}`;
 
     // Pending = the orders actually shown in the assignee columns below (not yet finished)
     const pendingCount = hersheyAll.length + laraAll.length + lizetteAll.length;
