@@ -241,6 +241,30 @@
     max-height:60px;
     overflow-y:auto;
   }
+  .important-notes-block{
+    margin-top:10px;
+  }
+  .important-notes-label{
+    display:block;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:var(--muted);
+    margin-bottom:4px;
+  }
+  .important-notes-input{
+    width:100%;
+    resize:vertical;
+    font-family:inherit;
+    font-size:12px;
+    color:var(--text);
+    background:var(--bg);
+    border:1px solid var(--border-strong);
+    border-radius:6px;
+    padding:7px 9px;
+  }
+  .important-notes-input:focus{outline:none;border-color:var(--accent);}
+  .important-notes-input:disabled{opacity:.6;}
   .pill{
     display:inline-block;
     padding:2px 8px;
@@ -364,6 +388,82 @@
   .tab-btn + .tab-btn{margin-left:14px;}
   .tab-btn:hover{color:var(--text);background:transparent;}
   .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+  .inventory-add{
+    display:flex;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .inventory-add input[type=text]{
+    flex:1;
+    padding:9px 12px;
+    border:1px solid var(--border-strong);
+    border-radius:8px;
+    font-size:13px;
+    background:var(--panel);
+    color:var(--text);
+  }
+  .inventory-list{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .inventory-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:10px 12px;
+    border-bottom:1px solid var(--border);
+  }
+  .inventory-item:last-child{border-bottom:none;}
+  .inventory-check{
+    appearance:none;
+    -webkit-appearance:none;
+    width:20px;
+    height:20px;
+    min-width:20px;
+    border-radius:50%;
+    border:2px solid var(--border-strong);
+    background:transparent;
+    cursor:pointer;
+    position:relative;
+    flex-shrink:0;
+  }
+  .inventory-check:hover{border-color:var(--accent);}
+  .inventory-check:checked{
+    background:var(--accent);
+    border-color:var(--accent);
+  }
+  .inventory-check:checked::after{
+    content:"";
+    position:absolute;
+    left:6px;
+    top:2px;
+    width:5px;
+    height:10px;
+    border:solid #fff;
+    border-width:0 2px 2px 0;
+    transform:rotate(45deg);
+  }
+  .inventory-name{
+    flex:1;
+    font-size:13.5px;
+    color:var(--text);
+  }
+  .inventory-item.done .inventory-name{
+    color:var(--muted);
+    text-decoration:line-through;
+  }
+  .inventory-remove{
+    background:transparent;
+    border:none;
+    color:var(--muted);
+    font-size:16px;
+    line-height:1;
+    cursor:pointer;
+    padding:2px 6px;
+  }
+  .inventory-remove:hover{color:#f87171;background:transparent;}
 </style>
 </head>
 <body>
@@ -413,6 +513,7 @@
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="assembly">Assembly</button>
   <button class="tab-btn" data-tab="printing">Printing</button>
+  <button class="tab-btn" data-tab="inventory">Inventory</button>
 </div>
 
 <div class="tab-panel" id="tab-assembly">
@@ -451,6 +552,17 @@
   </section>
 </div>
 
+<div class="tab-panel" id="tab-inventory" hidden>
+  <section>
+    <div class="section-title">Inventory Checklist</div>
+    <div class="inventory-add">
+      <input type="text" id="inventory-input" placeholder="Add an inventory item…">
+      <button id="inventory-add-btn">Add</button>
+    </div>
+    <div class="inventory-list" id="inventory-list"></div>
+  </section>
+</div>
+
 <script>
 const BASE_ID = "appo9wxYM4FruiIBA";
 const TABLE_ID = "tblYa1m1b8ru4vOh9";
@@ -486,7 +598,8 @@ const COLUMNS = [
   { key: "Own Total", label: "Own Total", type: "currency" },
   { key: "Souvenir total", label: "Souvenir Total", type: "currency" },
   { key: "Total", label: "Total", type: "currency" },
-  { key: "Notes", label: "Notes", type: "notes" }
+  { key: "Notes", label: "Notes", type: "notes" },
+  { key: "Important notes", label: "Important Notes", type: "notes" }
 ];
 const FIELDS = COLUMNS.map(c => c.key);
 
@@ -637,7 +750,7 @@ const ROW4_COLS = rowCols(ROW4_KEYS);
 const TOTALS_COLS = rowCols(TOTALS_KEYS);
 
 // Columns shown as the compact labeled field grid on each card (everything not placed in the header or a special row)
-const CARD_FIELDS = COLUMNS.filter(c => !["Client Number","FB Name","Meta link","Status","Priority","Assignee for assembly","Notes","Details",...PLAIN_ROW_KEYS,...TOTALS_KEYS].includes(c.key));
+const CARD_FIELDS = COLUMNS.filter(c => !["Client Number","FB Name","Meta link","Status","Priority","Assignee for assembly","Notes","Important notes","Details",...PLAIN_ROW_KEYS,...TOTALS_KEYS].includes(c.key));
 const ASSIGNEE_OPTIONS = ["Hershey","Lara","Lizette"];
 
 async function updateAssignee(recordId, value, selectEl, tableId){
@@ -662,6 +775,31 @@ async function updateAssignee(recordId, value, selectEl, tableId){
     console.error(err);
     setStatus(err.message, true);
     selectEl.disabled = false;
+  }
+}
+
+async function updateTextField(recordId, fieldName, value, el, tableId){
+  const token = getToken();
+  el.disabled = true;
+  try {
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${tableId || TABLE_ID}/${recordId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ fields: { [fieldName]: value || null } })
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Failed to update ${fieldName}: ${res.status} ${body}`);
+    }
+    setStatus(`Saved ${fieldName} at ${new Date().toLocaleTimeString()}`);
+  } catch (err) {
+    console.error(err);
+    setStatus(err.message, true);
+  } finally {
+    el.disabled = false;
   }
 }
 
@@ -849,10 +987,23 @@ function renderCard(rec){
     <div class="field-grid">${fieldsHtml}</div>
     ${totalsHtml}
     ${notesText ? `<div class="card-notes">${notesText}</div>` : ""}
+    <div class="important-notes-block">
+      <label class="important-notes-label">Important Notes</label>
+      <textarea class="important-notes-input" placeholder="Add important notes…" rows="2"></textarea>
+    </div>
   `;
 
   const select = div.querySelector(".assignee-select");
   select.addEventListener("change", () => updateAssignee(rec.id, select.value, select));
+
+  const importantNotesEl = div.querySelector(".important-notes-input");
+  importantNotesEl.value = f["Important notes"] || "";
+  let lastSavedImportantNotes = importantNotesEl.value;
+  importantNotesEl.addEventListener("blur", () => {
+    if (importantNotesEl.value === lastSavedImportantNotes) return;
+    lastSavedImportantNotes = importantNotesEl.value;
+    updateTextField(rec.id, "Important notes", importantNotesEl.value, importantNotesEl);
+  });
 
   return div;
 }
@@ -1143,6 +1294,69 @@ document.getElementById("save-btn").addEventListener("click", () => {
 });
 document.getElementById("refresh-btn").addEventListener("click", loadDashboard);
 
+// --- Inventory checklist (local to this browser, name-only, no quantity) ---
+const INVENTORY_KEY = "mh_inventory_items";
+
+function getInventory(){
+  try {
+    return JSON.parse(localStorage.getItem(INVENTORY_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveInventory(items){
+  try { localStorage.setItem(INVENTORY_KEY, JSON.stringify(items)); } catch {}
+}
+
+function renderInventory(){
+  const items = getInventory();
+  const list = document.getElementById("inventory-list");
+  list.innerHTML = "";
+  if (!items.length){
+    list.innerHTML = `<div class="empty">No inventory items yet.</div>`;
+    return;
+  }
+  items.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "inventory-item" + (item.checked ? " done" : "");
+    row.innerHTML = `
+      <input type="checkbox" class="inventory-check" ${item.checked ? "checked" : ""}>
+      <span class="inventory-name"></span>
+      <button class="inventory-remove" title="Remove">&times;</button>
+    `;
+    row.querySelector(".inventory-name").textContent = item.name;
+    row.querySelector(".inventory-check").addEventListener("change", (e) => {
+      const all = getInventory();
+      const target = all.find(i => i.id === item.id);
+      if (target) target.checked = e.target.checked;
+      saveInventory(all);
+      renderInventory();
+    });
+    row.querySelector(".inventory-remove").addEventListener("click", () => {
+      saveInventory(getInventory().filter(i => i.id !== item.id));
+      renderInventory();
+    });
+    list.appendChild(row);
+  });
+}
+
+function addInventoryItem(){
+  const input = document.getElementById("inventory-input");
+  const name = input.value.trim();
+  if (!name) return;
+  const items = getInventory();
+  items.push({ id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name, checked: false });
+  saveInventory(items);
+  input.value = "";
+  renderInventory();
+}
+
+document.getElementById("inventory-add-btn").addEventListener("click", addInventoryItem);
+document.getElementById("inventory-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") addInventoryItem();
+});
+
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -1155,6 +1369,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 window.addEventListener("DOMContentLoaded", () => {
   const existing = getToken();
   if (existing) patInput.value = existing;
+  renderInventory();
   loadDashboard();
 });
 </script>
