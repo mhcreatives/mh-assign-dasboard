@@ -598,6 +598,7 @@ const COLUMNS = [
   { key: "Stamp", label: "Stamp", type: "pill" },
   { key: "Wax", label: "Wax", type: "pill" },
   { key: "Add ons", label: "Add Ons", type: "pill" },
+  { key: "Production time", label: "Production Time", type: "days" },
   { key: "Souvenir 2", label: "Souvenir", type: "hidden" },
   { key: "Own Total", label: "Own Total", type: "currency" },
   { key: "Souvenir total", label: "Souvenir Total", type: "currency" },
@@ -818,6 +819,7 @@ function fieldValueHtml(col, value){
   if (col.type === "date") return fmtDate(value) || "—";
   if (col.type === "check") return value ? `<span class="check yes">&#10003;</span>` : `<span class="check no"></span>`;
   if (col.type === "currency") return fmtMoney(value);
+  if (col.type === "days") return (value != null && value !== "") ? `${value} day${value === 1 ? "" : "s"}` : "—";
   if (col.type === "linkcount") {
     const n = asList(value).length;
     return n > 0 ? String(n) : "—";
