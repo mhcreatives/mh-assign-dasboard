@@ -533,17 +533,17 @@
   </div>
   <div class="assigned-columns">
     <section>
-      <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total-all"></span><span class="total-badge" id="hershey-total"></span><span class="assignee-quota" id="hershey-quota"></span></div>
+      <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total-all"></span><span class="total-badge" id="hershey-total"></span><span class="assignee-quota" id="hershey-quota"></span><span class="assignee-quota" id="hershey-quota-yesterday"></span><span class="assignee-quota" id="hershey-quota-week"></span></div>
       <div class="cards single-col accent-hershey" id="hershey-cards"></div>
     </section>
 
     <section>
-      <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total-all"></span><span class="total-badge" id="lara-total"></span><span class="assignee-quota" id="lara-quota"></span></div>
+      <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total-all"></span><span class="total-badge" id="lara-total"></span><span class="assignee-quota" id="lara-quota"></span><span class="assignee-quota" id="lara-quota-yesterday"></span><span class="assignee-quota" id="lara-quota-week"></span></div>
       <div class="cards single-col accent-lara" id="lara-cards"></div>
     </section>
 
     <section>
-      <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total-all"></span><span class="total-badge" id="lizette-total"></span><span class="assignee-quota" id="lizette-quota"></span></div>
+      <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total-all"></span><span class="total-badge" id="lizette-total"></span><span class="assignee-quota" id="lizette-quota"></span><span class="assignee-quota" id="lizette-quota-yesterday"></span><span class="assignee-quota" id="lizette-quota-week"></span></div>
       <div class="cards single-col accent-lizette" id="lizette-cards"></div>
     </section>
   </div>
@@ -576,6 +576,7 @@ const SOLO_SOUVENIR_FIELDS = ["FB Name","Meta link","Priority","Area","Event dat
 const DAILY_QUOTA = 40000;
 const WEEKLY_QUOTA = 200000;
 const ASSIGNEE_DAILY_QUOTA = { Hershey: 14000, Lara: 14000, Lizette: 12000 };
+const ASSIGNEE_WEEKLY_QUOTA = Object.fromEntries(Object.entries(ASSIGNEE_DAILY_QUOTA).map(([k, v]) => [k, v * 5]));
 
 // Columns rendered, in order. type: text|pill|check|notes
 const COLUMNS = [
@@ -1113,14 +1114,18 @@ async function fetchQuotaTotals(){
   const lastWeekSouvFormula = `AND({Invitation}="",IS_SAME({Date finished},DATEADD(TODAY(),-7,'days'),'week'),${souvStatusFilter})`;
   const monthlyInvFormula = `AND(IS_SAME({Date finished},TODAY(),'month'),${notAdditional},${invStatusFilter})`;
   const monthlySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},TODAY(),'month'),${souvStatusFilter})`;
+  const yesterdayInvFormula = `AND(IS_SAME({Date finished},DATEADD(TODAY(),-1,'days'),'day'),${notAdditional},${invStatusFilter})`;
+  const yesterdaySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},DATEADD(TODAY(),-1,'days'),'day'),${souvStatusFilter})`;
 
-  const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv, monthlyInv, monthlySouv] = await Promise.all([
+  const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv, monthlyInv, monthlySouv, yesterdayInv, yesterdaySouv] = await Promise.all([
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], weeklyInvFormula),
     fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total","Assignee for assembly"], weeklySouvFormula),
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], lastWeekInvFormula),
     fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], lastWeekSouvFormula),
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], monthlyInvFormula),
-    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], monthlySouvFormula)
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], monthlySouvFormula),
+    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], yesterdayInvFormula),
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total","Assignee for assembly"], yesterdaySouvFormula)
   ]);
 
   const todayStr = localDateStr();
@@ -1128,12 +1133,14 @@ async function fetchQuotaTotals(){
   let doneTodayTotal = 0, doneTodayCount = 0;
   const assigneeDaily = { Hershey: 0, Lara: 0, Lizette: 0 };
   const assigneeDoneCount = { Hershey: 0, Lara: 0, Lizette: 0 };
+  const assigneeWeekly = { Hershey: 0, Lara: 0, Lizette: 0 };
   weeklyInv.forEach(rec => {
     const val = effectiveTotal(rec.fields);
     weeklyTotal += val;
+    const assignee = rec.fields["Assignee for assembly"];
+    if (assignee in assigneeWeekly) assigneeWeekly[assignee] += val;
     if (rec.fields["Date finished"] === todayStr) {
       dailyTotal += val;
-      const assignee = rec.fields["Assignee for assembly"];
       if (assignee in assigneeDaily) {
         assigneeDaily[assignee] += val;
         assigneeDoneCount[assignee] += 1;
@@ -1145,9 +1152,10 @@ async function fetchQuotaTotals(){
   weeklySouv.forEach(rec => {
     const val = Number(rec.fields["Total"]) || 0;
     weeklyTotal += val;
+    const assignee = rec.fields["Assignee for assembly"];
+    if (assignee in assigneeWeekly) assigneeWeekly[assignee] += val;
     if (rec.fields["Date finished"] === todayStr) {
       dailyTotal += val;
-      const assignee = rec.fields["Assignee for assembly"];
       if (assignee in assigneeDaily) {
         assigneeDaily[assignee] += val;
         assigneeDoneCount[assignee] += 1;
@@ -1155,6 +1163,16 @@ async function fetchQuotaTotals(){
         doneTodayCount += 1;
       }
     }
+  });
+
+  const assigneeYesterday = { Hershey: 0, Lara: 0, Lizette: 0 };
+  yesterdayInv.forEach(rec => {
+    const assignee = rec.fields["Assignee for assembly"];
+    if (assignee in assigneeYesterday) assigneeYesterday[assignee] += effectiveTotal(rec.fields);
+  });
+  yesterdaySouv.forEach(rec => {
+    const assignee = rec.fields["Assignee for assembly"];
+    if (assignee in assigneeYesterday) assigneeYesterday[assignee] += Number(rec.fields["Total"]) || 0;
   });
 
   let lastWeekTotal = 0;
@@ -1174,7 +1192,7 @@ async function fetchQuotaTotals(){
   const weekPaceMet = weeklyTotal >= weekPaceQuota;
   const weekPaceGap = weekPaceMet ? 0 : weekPaceQuota - weeklyTotal;
 
-  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, assigneeDoneCount, doneTodayTotal, doneTodayCount, weekPaceQuota, weekPaceMet, weekPaceGap, weekdaysElapsed };
+  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, assigneeDoneCount, assigneeWeekly, assigneeYesterday, doneTodayTotal, doneTodayCount, weekPaceQuota, weekPaceMet, weekPaceGap, weekdaysElapsed };
 }
 
 function setQuotaCard(prefix, value, target, metText, unmetText){
@@ -1190,11 +1208,14 @@ function setQuotaCard(prefix, value, target, metText, unmetText){
 }
 
 function setAssigneeQuotaBadge(name, value){
-  const target = ASSIGNEE_DAILY_QUOTA[name];
-  const el = document.getElementById(`${name.toLowerCase()}-quota`);
+  setAssigneePeriodBadge(name, "quota", value, ASSIGNEE_DAILY_QUOTA[name], "today");
+}
+
+function setAssigneePeriodBadge(name, elSuffix, value, target, label){
+  const el = document.getElementById(`${name.toLowerCase()}-${elSuffix}`);
   if (!el || !target) return;
   const met = value >= target;
-  el.textContent = `${fmtMoney(value)} / ${fmtMoney(target)} today`;
+  el.textContent = `${fmtMoney(value)} / ${fmtMoney(target)} ${label}`;
   el.classList.remove("met", "unmet");
   el.classList.add(met ? "met" : "unmet");
 }
@@ -1317,6 +1338,8 @@ async function loadDashboard(){
     document.getElementById("quota-monthly-value").textContent = fmtMoney(quotaTotals.monthlyTotal);
     Object.keys(ASSIGNEE_DAILY_QUOTA).forEach(name => {
       setAssigneeQuotaBadge(name, quotaTotals.assigneeDaily[name] || 0);
+      setAssigneePeriodBadge(name, "quota-yesterday", quotaTotals.assigneeYesterday[name] || 0, ASSIGNEE_DAILY_QUOTA[name], "yesterday");
+      setAssigneePeriodBadge(name, "quota-week", quotaTotals.assigneeWeekly[name] || 0, ASSIGNEE_WEEKLY_QUOTA[name], "this week");
     });
     setStatus("");
   } catch (err) {
