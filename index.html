@@ -359,13 +359,19 @@
   }
   .quota-indicator.met{background:#16301e;color:#4ade80;}
   .quota-indicator.unmet{background:#3a2f10;color:#f5a524;}
-  .assignee-quota{
+  .assignee-quota-row{
     flex-basis:100%;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .assignee-quota{
     width:fit-content;
     font-size:11px;
     font-weight:700;
     padding:2px 9px;
     border-radius:999px;
+    white-space:nowrap;
   }
   .assignee-quota.met{background:#16301e;color:#4ade80;}
   .assignee-quota.unmet{background:#3a2f10;color:#f5a524;}
@@ -533,17 +539,17 @@
   </div>
   <div class="assigned-columns">
     <section>
-      <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total-all"></span><span class="total-badge" id="hershey-total"></span><span class="assignee-quota" id="hershey-quota"></span><span class="assignee-quota" id="hershey-quota-yesterday"></span><span class="assignee-quota" id="hershey-quota-week"></span></div>
+      <div class="section-title hershey"><span class="dot hershey"></span> Assigned to Hershey <span class="count-badge" id="hershey-count">0</span><span class="total-badge" id="hershey-total-all"></span><span class="total-badge" id="hershey-total"></span><span class="assignee-quota-row"><span class="assignee-quota" id="hershey-quota"></span><span class="assignee-quota" id="hershey-quota-yesterday"></span><span class="assignee-quota" id="hershey-quota-week"></span></span></div>
       <div class="cards single-col accent-hershey" id="hershey-cards"></div>
     </section>
 
     <section>
-      <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total-all"></span><span class="total-badge" id="lara-total"></span><span class="assignee-quota" id="lara-quota"></span><span class="assignee-quota" id="lara-quota-yesterday"></span><span class="assignee-quota" id="lara-quota-week"></span></div>
+      <div class="section-title lara"><span class="dot lara"></span> Assigned to Lara <span class="count-badge" id="lara-count">0</span><span class="total-badge" id="lara-total-all"></span><span class="total-badge" id="lara-total"></span><span class="assignee-quota-row"><span class="assignee-quota" id="lara-quota"></span><span class="assignee-quota" id="lara-quota-yesterday"></span><span class="assignee-quota" id="lara-quota-week"></span></span></div>
       <div class="cards single-col accent-lara" id="lara-cards"></div>
     </section>
 
     <section>
-      <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total-all"></span><span class="total-badge" id="lizette-total"></span><span class="assignee-quota" id="lizette-quota"></span><span class="assignee-quota" id="lizette-quota-yesterday"></span><span class="assignee-quota" id="lizette-quota-week"></span></div>
+      <div class="section-title lizette"><span class="dot lizette"></span> Assigned to Lizette <span class="count-badge" id="lizette-count">0</span><span class="total-badge" id="lizette-total-all"></span><span class="total-badge" id="lizette-total"></span><span class="assignee-quota-row"><span class="assignee-quota" id="lizette-quota"></span><span class="assignee-quota" id="lizette-quota-yesterday"></span><span class="assignee-quota" id="lizette-quota-week"></span></span></div>
       <div class="cards single-col accent-lizette" id="lizette-cards"></div>
     </section>
   </div>
