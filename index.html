@@ -473,6 +473,45 @@
     padding:2px 6px;
   }
   .inventory-remove:hover{color:#f87171;background:transparent;}
+
+  .summary-table-wrap{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow-x:auto;
+  }
+  .summary-table{
+    border-collapse:collapse;
+    width:100%;
+    min-width:520px;
+  }
+  .summary-table th, .summary-table td{
+    padding:9px 14px;
+    text-align:right;
+    border-bottom:1px solid var(--border);
+    font-size:13px;
+    white-space:nowrap;
+  }
+  .summary-table th:first-child, .summary-table td:first-child{
+    text-align:left;
+  }
+  .summary-table thead th{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:var(--muted);
+    background:var(--header-bg);
+  }
+  .summary-table tbody tr:last-child td{border-bottom:none;}
+  .summary-table tbody tr.today{background:var(--row-hover);}
+  .summary-table tbody tr.weekend td{color:var(--muted);}
+  .summary-table tfoot td{
+    font-weight:700;
+    border-top:2px solid var(--border-strong);
+    border-bottom:none;
+  }
+  .summary-table .day-label{font-weight:600;color:var(--text);}
+  .summary-table .day-date{font-size:11px;color:var(--muted);font-weight:400;margin-left:4px;}
 </style>
 </head>
 <body>
@@ -524,6 +563,7 @@
   <button class="tab-btn active" data-tab="assembly">Assembly</button>
   <button class="tab-btn" data-tab="printing">Printing</button>
   <button class="tab-btn" data-tab="inventory">Inventory</button>
+  <button class="tab-btn" data-tab="summary">Summary</button>
 </div>
 
 <div class="tab-panel" id="tab-assembly">
@@ -570,6 +610,17 @@
       <button id="inventory-add-btn">Add</button>
     </div>
     <div class="inventory-list" id="inventory-list"></div>
+  </section>
+</div>
+
+<div class="tab-panel" id="tab-summary" hidden>
+  <section>
+    <div class="section-title">This Week <span class="total-badge" id="summary-week-total"></span></div>
+    <div class="summary-table-wrap"><table class="summary-table" id="summary-week-table"></table></div>
+  </section>
+  <section>
+    <div class="section-title">Last Week <span class="total-badge" id="summary-lastweek-total"></span></div>
+    <div class="summary-table-wrap"><table class="summary-table" id="summary-lastweek-table"></table></div>
   </section>
 </div>
 
@@ -1105,6 +1156,24 @@ function localDateStr(d){
   return `${y}-${m}-${day}`;
 }
 
+const DAY_NAMES = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+// Returns the 7 date strings (Mon..Sun) for the week containing `today`, shifted by weekOffset weeks (0=this week, -1=last week)
+function weekDates(weekOffset){
+  const now = new Date();
+  const jsWeekday = now.getDay(); // 0=Sun..6=Sat
+  const isoWeekday = jsWeekday === 0 ? 7 : jsWeekday; // 1=Mon..7=Sun
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (isoWeekday - 1) + weekOffset * 7);
+  const dates = [];
+  for (let i = 0; i < 7; i++){
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    dates.push(localDateStr(d));
+  }
+  return dates;
+}
+
 async function fetchQuotaTotals(){
   // Exclude "Additional order" children: their value is already rolled into the parent's Total via
   // the Additional Orders Total rollup, so counting them separately here would double-count revenue.
@@ -1126,8 +1195,8 @@ async function fetchQuotaTotals(){
   const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv, monthlyInv, monthlySouv, yesterdayInv, yesterdaySouv] = await Promise.all([
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], weeklyInvFormula),
     fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total","Assignee for assembly"], weeklySouvFormula),
-    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], lastWeekInvFormula),
-    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], lastWeekSouvFormula),
+    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], lastWeekInvFormula),
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total","Assignee for assembly"], lastWeekSouvFormula),
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], monthlyInvFormula),
     fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], monthlySouvFormula),
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], yesterdayInvFormula),
@@ -1185,6 +1254,22 @@ async function fetchQuotaTotals(){
   lastWeekInv.forEach(rec => { lastWeekTotal += effectiveTotal(rec.fields); });
   lastWeekSouv.forEach(rec => { lastWeekTotal += Number(rec.fields["Total"]) || 0; });
 
+  // Per-day, per-assignee breakdown for the Summary tab
+  function buildDailyBreakdown(invRecords, souvRecords){
+    const days = {};
+    const add = (dateStr, assignee, val) => {
+      if (!dateStr) return;
+      if (!days[dateStr]) days[dateStr] = { Hershey: 0, Lara: 0, Lizette: 0, Total: 0 };
+      if (assignee in days[dateStr]) days[dateStr][assignee] += val;
+      days[dateStr].Total += val;
+    };
+    invRecords.forEach(rec => add(rec.fields["Date finished"], rec.fields["Assignee for assembly"], effectiveTotal(rec.fields)));
+    souvRecords.forEach(rec => add(rec.fields["Date finished"], rec.fields["Assignee for assembly"], Number(rec.fields["Total"]) || 0));
+    return days;
+  }
+  const thisWeekDaily = buildDailyBreakdown(weeklyInv, weeklySouv);
+  const lastWeekDaily = buildDailyBreakdown(lastWeekInv, lastWeekSouv);
+
   let monthlyTotal = 0;
   monthlyInv.forEach(rec => { monthlyTotal += effectiveTotal(rec.fields); });
   monthlySouv.forEach(rec => { monthlyTotal += Number(rec.fields["Total"]) || 0; });
@@ -1198,7 +1283,43 @@ async function fetchQuotaTotals(){
   const weekPaceMet = weeklyTotal >= weekPaceQuota;
   const weekPaceGap = weekPaceMet ? 0 : weekPaceQuota - weeklyTotal;
 
-  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, assigneeDoneCount, assigneeWeekly, assigneeYesterday, doneTodayTotal, doneTodayCount, weekPaceQuota, weekPaceMet, weekPaceGap, weekdaysElapsed };
+  return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, assigneeDoneCount, assigneeWeekly, assigneeYesterday, doneTodayTotal, doneTodayCount, weekPaceQuota, weekPaceMet, weekPaceGap, weekdaysElapsed, thisWeekDaily, lastWeekDaily };
+}
+
+function renderSummaryTable(tableId, dates, dailyBreakdown){
+  const table = document.getElementById(tableId);
+  const todayStr = localDateStr();
+  const totals = { Hershey: 0, Lara: 0, Lizette: 0, Total: 0 };
+
+  const rows = dates.map((dateStr, i) => {
+    const day = dailyBreakdown[dateStr] || { Hershey: 0, Lara: 0, Lizette: 0, Total: 0 };
+    totals.Hershey += day.Hershey;
+    totals.Lara += day.Lara;
+    totals.Lizette += day.Lizette;
+    totals.Total += day.Total;
+    const isWeekend = i >= 5;
+    const isToday = dateStr === todayStr;
+    const shortDate = fmtDate(dateStr) || dateStr;
+    return `<tr class="${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}">
+      <td><span class="day-label">${DAY_NAMES[i]}</span><span class="day-date">${shortDate}</span></td>
+      <td>${fmtMoney(day.Hershey)}</td>
+      <td>${fmtMoney(day.Lara)}</td>
+      <td>${fmtMoney(day.Lizette)}</td>
+      <td>${fmtMoney(day.Total)}</td>
+    </tr>`;
+  }).join("");
+
+  table.innerHTML = `
+    <thead><tr><th>Day</th><th>Hershey</th><th>Lara</th><th>Lizette</th><th>Total</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr>
+      <td>Week Total</td>
+      <td>${fmtMoney(totals.Hershey)}</td>
+      <td>${fmtMoney(totals.Lara)}</td>
+      <td>${fmtMoney(totals.Lizette)}</td>
+      <td>${fmtMoney(totals.Total)}</td>
+    </tr></tfoot>
+  `;
 }
 
 function setQuotaCard(prefix, value, target, metText, unmetText){
@@ -1347,6 +1468,12 @@ async function loadDashboard(){
       setAssigneePeriodBadge(name, "quota-yesterday", quotaTotals.assigneeYesterday[name] || 0, ASSIGNEE_DAILY_QUOTA[name], "yesterday");
       setAssigneePeriodBadge(name, "quota-week", quotaTotals.assigneeWeekly[name] || 0, ASSIGNEE_WEEKLY_QUOTA[name], "this week");
     });
+
+    renderSummaryTable("summary-week-table", weekDates(0), quotaTotals.thisWeekDaily);
+    renderSummaryTable("summary-lastweek-table", weekDates(-1), quotaTotals.lastWeekDaily);
+    document.getElementById("summary-week-total").innerHTML = `<span class="label">Total</span>${fmtMoney(quotaTotals.weeklyTotal)}`;
+    document.getElementById("summary-lastweek-total").innerHTML = `<span class="label">Total</span>${fmtMoney(quotaTotals.lastWeekTotal)}`;
+
     setStatus("");
   } catch (err) {
     console.error(err);
