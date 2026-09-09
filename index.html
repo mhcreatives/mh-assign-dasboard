@@ -490,10 +490,39 @@
     text-align:right;
     border-bottom:1px solid var(--border);
     font-size:13px;
+    vertical-align:top;
+  }
+  .summary-table .cell-value{white-space:nowrap;}
+  .summary-table .cell-orders{margin-top:3px;text-align:right;}
+  .summary-table .cell-orders summary{
+    font-size:10.5px;
+    color:var(--accent);
+    cursor:pointer;
+    list-style:none;
     white-space:nowrap;
   }
+  .summary-table .cell-orders summary::-webkit-details-marker{display:none;}
+  .summary-table .cell-orders summary:hover{text-decoration:underline;}
+  .summary-table .cell-orders-list{
+    margin-top:4px;
+    max-width:180px;
+    max-height:70px;
+    overflow-y:auto;
+    text-align:left;
+    white-space:normal;
+    font-size:11px;
+    line-height:1.6;
+    color:var(--muted);
+    background:var(--bg);
+    border-radius:5px;
+    padding:5px 7px;
+    margin-left:auto;
+  }
+  .summary-table .cell-orders-list a{color:var(--accent);text-decoration:none;}
+  .summary-table .cell-orders-list a:hover{text-decoration:underline;}
   .summary-table th:first-child, .summary-table td:first-child{
     text-align:left;
+    white-space:nowrap;
   }
   .summary-table thead th{
     font-size:11px;
@@ -1193,10 +1222,10 @@ async function fetchQuotaTotals(){
   const yesterdaySouvFormula = `AND({Invitation}="",IS_SAME({Date finished},DATEADD(TODAY(),-1,'days'),'day'),${souvStatusFilter})`;
 
   const [weeklyInv, weeklySouv, lastWeekInv, lastWeekSouv, monthlyInv, monthlySouv, yesterdayInv, yesterdaySouv] = await Promise.all([
-    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], weeklyInvFormula),
-    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total","Assignee for assembly"], weeklySouvFormula),
-    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], lastWeekInvFormula),
-    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total","Assignee for assembly"], lastWeekSouvFormula),
+    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly","Client Number"], weeklyInvFormula),
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total","Assignee for assembly","FB Name"], weeklySouvFormula),
+    fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly","Client Number"], lastWeekInvFormula),
+    fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total","Assignee for assembly","FB Name"], lastWeekSouvFormula),
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total"], monthlyInvFormula),
     fetchAllFromTable(SOUVENIR_TABLE_ID, ["Date finished","Total"], monthlySouvFormula),
     fetchAllFromTable(TABLE_ID, ["Date finished","Total","Own Total","Souvenir total","Assignee for assembly"], yesterdayInvFormula),
@@ -1254,17 +1283,36 @@ async function fetchQuotaTotals(){
   lastWeekInv.forEach(rec => { lastWeekTotal += effectiveTotal(rec.fields); });
   lastWeekSouv.forEach(rec => { lastWeekTotal += Number(rec.fields["Total"]) || 0; });
 
-  // Per-day, per-assignee breakdown for the Summary tab
+  // Per-day, per-assignee breakdown for the Summary tab — also tracks each contributing order
+  // (client number / name + a link to its Airtable record) so it can be expanded per cell.
   function buildDailyBreakdown(invRecords, souvRecords){
     const days = {};
-    const add = (dateStr, assignee, val) => {
-      if (!dateStr) return;
-      if (!days[dateStr]) days[dateStr] = { Hershey: 0, Lara: 0, Lizette: 0, Total: 0 };
-      if (assignee in days[dateStr]) days[dateStr][assignee] += val;
-      days[dateStr].Total += val;
+    const ensureDay = (dateStr) => {
+      if (!days[dateStr]) days[dateStr] = {
+        Hershey: 0, Lara: 0, Lizette: 0, Total: 0,
+        ordersByAssignee: { Hershey: [], Lara: [], Lizette: [] },
+        ordersTotal: []
+      };
+      return days[dateStr];
     };
-    invRecords.forEach(rec => add(rec.fields["Date finished"], rec.fields["Assignee for assembly"], effectiveTotal(rec.fields)));
-    souvRecords.forEach(rec => add(rec.fields["Date finished"], rec.fields["Assignee for assembly"], Number(rec.fields["Total"]) || 0));
+    const add = (dateStr, assignee, val, order) => {
+      if (!dateStr) return;
+      const day = ensureDay(dateStr);
+      if (assignee in day.ordersByAssignee) {
+        day[assignee] += val;
+        day.ordersByAssignee[assignee].push(order);
+      }
+      day.Total += val;
+      day.ordersTotal.push(order);
+    };
+    invRecords.forEach(rec => {
+      const label = rec.fields["Client Number"] != null ? `#${rec.fields["Client Number"]}` : rec.id;
+      add(rec.fields["Date finished"], rec.fields["Assignee for assembly"], effectiveTotal(rec.fields), { id: rec.id, label, tableId: TABLE_ID });
+    });
+    souvRecords.forEach(rec => {
+      const label = rec.fields["FB Name"] || rec.id;
+      add(rec.fields["Date finished"], rec.fields["Assignee for assembly"], Number(rec.fields["Total"]) || 0, { id: rec.id, label, tableId: SOUVENIR_TABLE_ID });
+    });
     return days;
   }
   const thisWeekDaily = buildDailyBreakdown(weeklyInv, weeklySouv);
@@ -1286,26 +1334,46 @@ async function fetchQuotaTotals(){
   return { weeklyTotal, dailyTotal, lastWeekTotal, monthlyTotal, assigneeDaily, assigneeDoneCount, assigneeWeekly, assigneeYesterday, doneTodayTotal, doneTodayCount, weekPaceQuota, weekPaceMet, weekPaceGap, weekdaysElapsed, thisWeekDaily, lastWeekDaily };
 }
 
+function orderLink(order){
+  const url = `https://airtable.com/${BASE_ID}/${order.tableId}/${order.id}`;
+  return `<a href="${escapeAttr(url)}" target="_blank" rel="noopener">${escapeAttr(order.label)}</a>`;
+}
+
+// Money value + a collapsed "N orders" toggle that expands into a small scrollable list of clickable client links
+function cellHtml(value, orders){
+  const moneyHtml = `<div class="cell-value">${fmtMoney(value)}</div>`;
+  if (!orders || !orders.length) return moneyHtml;
+  return `${moneyHtml}<details class="cell-orders">
+    <summary>${orders.length} order${orders.length === 1 ? "" : "s"}</summary>
+    <div class="cell-orders-list">${orders.map(orderLink).join(", ")}</div>
+  </details>`;
+}
+
 function renderSummaryTable(tableId, dates, dailyBreakdown){
   const table = document.getElementById(tableId);
   const todayStr = localDateStr();
   const totals = { Hershey: 0, Lara: 0, Lizette: 0, Total: 0 };
+  const weekOrders = { Hershey: [], Lara: [], Lizette: [], Total: [] };
 
   const rows = dates.map((dateStr, i) => {
-    const day = dailyBreakdown[dateStr] || { Hershey: 0, Lara: 0, Lizette: 0, Total: 0 };
+    const day = dailyBreakdown[dateStr] || { Hershey: 0, Lara: 0, Lizette: 0, Total: 0, ordersByAssignee: { Hershey: [], Lara: [], Lizette: [] }, ordersTotal: [] };
     totals.Hershey += day.Hershey;
     totals.Lara += day.Lara;
     totals.Lizette += day.Lizette;
     totals.Total += day.Total;
+    weekOrders.Hershey.push(...day.ordersByAssignee.Hershey);
+    weekOrders.Lara.push(...day.ordersByAssignee.Lara);
+    weekOrders.Lizette.push(...day.ordersByAssignee.Lizette);
+    weekOrders.Total.push(...day.ordersTotal);
     const isWeekend = i >= 5;
     const isToday = dateStr === todayStr;
     const shortDate = fmtDate(dateStr) || dateStr;
     return `<tr class="${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}">
       <td><span class="day-label">${DAY_NAMES[i]}</span><span class="day-date">${shortDate}</span></td>
-      <td>${fmtMoney(day.Hershey)}</td>
-      <td>${fmtMoney(day.Lara)}</td>
-      <td>${fmtMoney(day.Lizette)}</td>
-      <td>${fmtMoney(day.Total)}</td>
+      <td>${cellHtml(day.Hershey, day.ordersByAssignee.Hershey)}</td>
+      <td>${cellHtml(day.Lara, day.ordersByAssignee.Lara)}</td>
+      <td>${cellHtml(day.Lizette, day.ordersByAssignee.Lizette)}</td>
+      <td>${cellHtml(day.Total, day.ordersTotal)}</td>
     </tr>`;
   }).join("");
 
@@ -1314,10 +1382,10 @@ function renderSummaryTable(tableId, dates, dailyBreakdown){
     <tbody>${rows}</tbody>
     <tfoot><tr>
       <td>Week Total</td>
-      <td>${fmtMoney(totals.Hershey)}</td>
-      <td>${fmtMoney(totals.Lara)}</td>
-      <td>${fmtMoney(totals.Lizette)}</td>
-      <td>${fmtMoney(totals.Total)}</td>
+      <td>${cellHtml(totals.Hershey, weekOrders.Hershey)}</td>
+      <td>${cellHtml(totals.Lara, weekOrders.Lara)}</td>
+      <td>${cellHtml(totals.Lizette, weekOrders.Lizette)}</td>
+      <td>${cellHtml(totals.Total, weekOrders.Total)}</td>
     </tr></tfoot>
   `;
 }
