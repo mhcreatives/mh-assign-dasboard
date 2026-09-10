@@ -533,7 +533,6 @@
   }
   .summary-table tbody tr:last-child td{border-bottom:none;}
   .summary-table tbody tr.today{background:var(--row-hover);}
-  .summary-table tbody tr.weekend td{color:var(--muted);}
   .summary-table tfoot tr:first-child td{
     font-weight:700;
     border-top:2px solid var(--border-strong);
@@ -1373,6 +1372,7 @@ function renderSummaryTable(tableId, dates, dailyBreakdown, paceInfo){
 
   const rows = dates.map((dateStr, i) => {
     const day = dailyBreakdown[dateStr] || { Hershey: 0, Lara: 0, Lizette: 0, Total: 0, ordersByAssignee: { Hershey: [], Lara: [], Lizette: [] }, ordersTotal: [] };
+    // Totals include any weekend activity so the Week Total / pace still reconcile with the badge above.
     totals.Hershey += day.Hershey;
     totals.Lara += day.Lara;
     totals.Lizette += day.Lizette;
@@ -1381,10 +1381,10 @@ function renderSummaryTable(tableId, dates, dailyBreakdown, paceInfo){
     weekOrders.Lara.push(...day.ordersByAssignee.Lara);
     weekOrders.Lizette.push(...day.ordersByAssignee.Lizette);
     weekOrders.Total.push(...day.ordersTotal);
-    const isWeekend = i >= 5;
+    if (i >= 5) return ""; // weekend — not shown as a daily row
     const isToday = dateStr === todayStr;
     const shortDate = fmtDate(dateStr) || dateStr;
-    return `<tr class="${isToday ? "today" : ""} ${isWeekend ? "weekend" : ""}">
+    return `<tr class="${isToday ? "today" : ""}">
       <td><span class="day-label">${DAY_NAMES[i]}</span><span class="day-date">${shortDate}</span></td>
       <td>${cellHtml(day.Hershey, day.ordersByAssignee.Hershey)}</td>
       <td>${cellHtml(day.Lara, day.ordersByAssignee.Lara)}</td>
