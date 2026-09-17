@@ -698,7 +698,6 @@ const COLUMNS = [
   { key: "Own Total", label: "Own Total", type: "currency" },
   { key: "Souvenir total", label: "Souvenir Total", type: "currency" },
   { key: "Total", label: "Total", type: "currency" },
-  { key: "Notes", label: "Notes", type: "notes" },
   { key: "Important notes", label: "Important Notes", type: "notes" }
 ];
 const FIELDS = COLUMNS.map(c => c.key);
@@ -1035,7 +1034,6 @@ function renderCard(rec){
   const statusVal = f["Status"];
   const priorityVal = f["Priority"];
   const metaLink = f["Meta link"];
-  const notesText = f["Notes"] || "";
 
   const fieldsHtml = CARD_FIELDS.map(col => {
     const val = f[col.key];
@@ -1087,7 +1085,6 @@ function renderCard(rec){
     ${row5Html}
     <div class="field-grid">${fieldsHtml}</div>
     ${totalsHtml}
-    ${notesText ? `<div class="card-notes">${notesText}</div>` : ""}
     <div class="important-notes-block">
       <label class="important-notes-label">Important Notes</label>
       <textarea class="important-notes-input" placeholder="Add important notes…" rows="2"></textarea>
