@@ -635,7 +635,7 @@
 
 <div class="tab-panel" id="tab-printing" hidden>
   <section>
-    <div class="section-title printing"><span class="dot printing"></span> Printing <span class="count-badge" id="printing-count">0</span><span class="total-badge" id="printing-total"></span><span class="total-badge" id="printing-ready-total"></span><span class="total-badge" id="printing-combined-total"></span></div>
+    <div class="section-title printing"><span class="dot printing"></span> Printing <span class="count-badge" id="printing-count">0</span><span class="total-badge" id="printing-total"></span><span class="total-badge" id="printing-ready-total"></span><span class="total-badge" id="printing-combined-total"></span><span class="total-badge" id="printing-grand-total"></span></div>
     <div class="cards accent-printing" id="printing-cards"></div>
   </section>
 </div>
@@ -1515,6 +1515,9 @@ async function loadDashboard(){
     // Pending = the orders actually shown in the assignee columns below (not yet finished)
     const pendingCount = hersheyAll.length + laraAll.length + lizetteAll.length;
     const pendingTotal = sum(hersheyAll, "Total") + sum(laraAll, "Total") + sum(lizetteAll, "Total");
+
+    document.getElementById("printing-grand-total").innerHTML = `<span class="label">This Week + Pending + Ready + Printing</span>${fmtMoney(quotaTotals.weeklyTotal + pendingTotal + readyTotalValue + printingTotalValue)}`;
+
     // Done today = assigned orders finished today (Date finished), not shown as cards below
     const doneCount = quotaTotals.doneTodayCount;
     const doneTotal = quotaTotals.doneTodayTotal;
