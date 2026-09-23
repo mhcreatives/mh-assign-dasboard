@@ -684,7 +684,7 @@
 
 <div class="tab-panel" id="tab-toprint" hidden>
   <section>
-    <div class="section-title printing"><span class="dot printing"></span> To Print <span class="count-badge" id="toprint-count">0</span><span class="total-badge" id="toprint-total"></span></div>
+    <div class="section-title printing"><span class="dot printing"></span> To Print <span class="count-badge" id="toprint-count">0</span><span class="total-badge" id="toprint-total"></span><span class="total-badge" id="toprint-ready-total"></span><span class="total-badge" id="toprint-combined-total"></span><span class="total-badge" id="toprint-grand-total"></span></div>
     <div class="grid-table-wrap"><table class="grid-table" id="toprint-table"></table></div>
   </section>
 </div>
@@ -744,7 +744,65 @@ const TOPRINT_COLUMNS = [
   { key: "Add ons", label: "Add Ons", type: "pill" },
   { key: "Total", label: "Total", type: "currency" }
 ];
-const TOPRINT_FIELDS = TOPRINT_COLUMNS.map(c => c.key);
+// Extra fields needed only for sorting, not shown as their own columns
+const TOPRINT_SORT_EXTRA_FIELDS = ["Assignee for assembly", "Production time", "Layout finalized"];
+const TOPRINT_FIELDS = [...new Set([...TOPRINT_COLUMNS.map(c => c.key), ...TOPRINT_SORT_EXTRA_FIELDS])];
+
+// Position of a value within a field's defined choice order; unknown/blank sorts last.
+function choiceOrderIndex(orderArr, value){
+  const idx = orderArr.indexOf(value);
+  return idx === -1 ? orderArr.length : idx;
+}
+// Same, but for a multi-select value: uses the earliest (lowest-index) selected choice.
+function multiChoiceOrderIndex(orderArr, value){
+  const items = asList(value).filter(Boolean);
+  if (!items.length) return orderArr.length;
+  return Math.min(...items.map(v => choiceOrderIndex(orderArr, v)));
+}
+// Builds one comparator: getKey extracts the sort value, direction is "asc"/"desc".
+// Blank/empty values (per isEmpty) always sort last, regardless of direction — matches Airtable's own behavior.
+function compareBy(getKey, direction, isEmpty){
+  const empty = isEmpty || (v => v == null || v === "");
+  return (a, b) => {
+    const va = getKey(a), vb = getKey(b);
+    const ea = empty(va), eb = empty(vb);
+    if (ea && eb) return 0;
+    if (ea) return 1;
+    if (eb) return -1;
+    if (va < vb) return direction === "desc" ? 1 : -1;
+    if (va > vb) return direction === "desc" ? -1 : 1;
+    return 0;
+  };
+}
+function combineComparators(comparators){
+  return (a, b) => {
+    for (const cmp of comparators){
+      const r = cmp(a, b);
+      if (r !== 0) return r;
+    }
+    return 0;
+  };
+}
+// Matches the view's configured sort: Status, Assignee, Quota, Priority, Production time,
+// Event date, Date needed, Layout finalized, Texture, Size, Client Number (last tiebreaker).
+function toPrintComparator(){
+  const priorityOrder = Object.keys(EXACT_COLORS["Priority"]);
+  const sizeOrder = Object.keys(EXACT_COLORS["Size"]);
+  const textureOrder = Object.keys(EXACT_COLORS["Texture"]);
+  return combineComparators([
+    compareBy(r => choiceOrderIndex(TOPRINT_STATUSES, r.fields["Status"]), "asc"),
+    compareBy(r => choiceOrderIndex(ASSIGNEE_OPTIONS, r.fields["Assignee for assembly"]), "asc"),
+    compareBy(r => r.fields["Quota"] ? 1 : 0, "asc"),
+    compareBy(r => choiceOrderIndex(priorityOrder, r.fields["Priority"]), "asc"),
+    compareBy(r => Number(r.fields["Production time"]), "asc"),
+    compareBy(r => r.fields["Event date"], "desc"),
+    compareBy(r => r.fields["Date needed"], "asc"),
+    compareBy(r => r.fields["Layout finalized"], "desc"),
+    compareBy(r => multiChoiceOrderIndex(textureOrder, r.fields["Texture"]), "asc"),
+    compareBy(r => choiceOrderIndex(sizeOrder, r.fields["Size"]), "asc"),
+    compareBy(r => r.fields["Client Number"], "desc")
+  ]);
+}
 const DAILY_QUOTA = 40000;
 const WEEKLY_QUOTA = 200000;
 const ASSIGNEE_DAILY_QUOTA = { Hershey: 14000, Lara: 14000, Lizette: 12000 };
@@ -1632,7 +1690,7 @@ async function loadDashboard(){
       fetchAllRecords(printingFormula, "Status"),
       fetchAllFromTable(TABLE_ID, TOPRINT_FIELDS, toPrintFormula)
     ]);
-    toPrint.sort((a, b) => TOPRINT_STATUSES.indexOf(a.fields["Status"]) - TOPRINT_STATUSES.indexOf(b.fields["Status"]));
+    toPrint.sort(toPrintComparator());
     [soloReady, soloHershey, soloLara, soloLizette].forEach(list => list.forEach(rec => rec._kind = "souvenir"));
 
     const allSouvenirIds = [...ready, ...hershey, ...lara, ...lizette, ...printing]
@@ -1655,14 +1713,20 @@ async function loadDashboard(){
 
     const readyTotalValue = sum(readyAll, "Total");
     const printingTotalValue = sum(printing, "Total");
-    document.getElementById("printing-ready-total").innerHTML = `<span class="label">Ready for Assigning</span>${readyAll.length} &middot; ${fmtMoney(readyTotalValue)}`;
-    document.getElementById("printing-combined-total").innerHTML = `<span class="label">Combined</span>${readyAll.length + printing.length} &middot; ${fmtMoney(readyTotalValue + printingTotalValue)}`;
+    const readyBadgeHtml = `<span class="label">Ready for Assigning</span>${readyAll.length} &middot; ${fmtMoney(readyTotalValue)}`;
+    const combinedBadgeHtml = `<span class="label">Combined</span>${readyAll.length + printing.length} &middot; ${fmtMoney(readyTotalValue + printingTotalValue)}`;
+    document.getElementById("printing-ready-total").innerHTML = readyBadgeHtml;
+    document.getElementById("printing-combined-total").innerHTML = combinedBadgeHtml;
+    document.getElementById("toprint-ready-total").innerHTML = readyBadgeHtml;
+    document.getElementById("toprint-combined-total").innerHTML = combinedBadgeHtml;
 
     // Pending = the orders actually shown in the assignee columns below (not yet finished)
     const pendingCount = hersheyAll.length + laraAll.length + lizetteAll.length;
     const pendingTotal = sum(hersheyAll, "Total") + sum(laraAll, "Total") + sum(lizetteAll, "Total");
 
-    document.getElementById("printing-grand-total").innerHTML = `<span class="label">This Week + Pending + Ready + Printing</span>${fmtMoney(quotaTotals.weeklyTotal + pendingTotal + readyTotalValue + printingTotalValue)}`;
+    const grandTotalHtml = `<span class="label">This Week + Pending + Ready + Printing</span>${fmtMoney(quotaTotals.weeklyTotal + pendingTotal + readyTotalValue + printingTotalValue)}`;
+    document.getElementById("printing-grand-total").innerHTML = grandTotalHtml;
+    document.getElementById("toprint-grand-total").innerHTML = grandTotalHtml;
 
     // Done today = assigned orders finished today (Date finished), not shown as cards below
     const doneCount = quotaTotals.doneTodayCount;
