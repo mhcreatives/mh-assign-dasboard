@@ -1713,7 +1713,7 @@ async function loadDashboard(){
     // Pending = the orders actually shown in the assignee columns below (not yet finished)
     const pendingCount = hersheyAll.length + laraAll.length + lizetteAll.length;
     const pendingTotal = sum(hersheyAll, "Total") + sum(laraAll, "Total") + sum(lizetteAll, "Total");
-    const toPrintOnly = toPrint.filter(r => r.fields["Status"] === "To print");
+    const toPrintOnly = toPrint.filter(r => !r.fields["Quota"]);
     const toPrintOnlyValue = sum(toPrintOnly, "Total");
     const totalPrintedValue = quotaTotals.weeklyTotal + pendingTotal + readyTotalValue;
     const tentativeTotalValue = totalPrintedValue + printingTotalValue;
