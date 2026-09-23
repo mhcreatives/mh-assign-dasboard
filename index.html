@@ -640,8 +640,7 @@
 
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="assembly">Assembly</button>
-  <button class="tab-btn" data-tab="printing">Printing</button>
-  <button class="tab-btn" data-tab="toprint">To Print</button>
+  <button class="tab-btn" data-tab="toprint">Printing</button>
   <button class="tab-btn" data-tab="inventory">Inventory</button>
   <button class="tab-btn" data-tab="summary">Summary</button>
 </div>
@@ -675,16 +674,17 @@
   </div>
 </div>
 
-<div class="tab-panel" id="tab-printing" hidden>
-  <section>
-    <div class="section-title printing"><span class="dot printing"></span> Printing <span class="count-badge" id="printing-count">0</span><span class="total-badge" id="printing-total"></span><span class="total-badge" id="printing-ready-total"></span><span class="total-badge" id="printing-combined-total"></span><span class="total-badge" id="printing-grand-total"></span></div>
-    <div class="cards accent-printing" id="printing-cards"></div>
-  </section>
-</div>
-
 <div class="tab-panel" id="tab-toprint" hidden>
   <section>
-    <div class="section-title printing"><span class="dot printing"></span> To Print <span class="count-badge" id="toprint-count">0</span><span class="total-badge" id="toprint-total"></span><span class="total-badge" id="toprint-ready-total"></span><span class="total-badge" id="toprint-combined-total"></span><span class="total-badge" id="toprint-grand-total"></span></div>
+    <div class="section-title printing">
+      <span class="dot printing"></span> Printing
+      <span class="total-badge" id="toprint-toprint-total"></span>
+      <span class="total-badge" id="toprint-printing-total"></span>
+      <span class="total-badge" id="toprint-forassigning-total"></span>
+      <span class="total-badge" id="toprint-pending-total"></span>
+      <span class="total-badge" id="toprint-totalprinted-total"></span>
+      <span class="total-badge" id="toprint-tentative-total"></span>
+    </div>
     <div class="grid-table-wrap"><table class="grid-table" id="toprint-table"></table></div>
   </section>
 </div>
@@ -1703,30 +1703,30 @@ async function loadDashboard(){
     const lizetteAll = [...lizette, ...soloLizette];
 
     renderCards("ready-cards", "ready-count", readyAll, "ready-total");
-    renderCards("printing-cards", "printing-count", printing, "printing-total");
     renderToPrintTable(toPrint);
-    document.getElementById("toprint-count").textContent = toPrint.length;
-    document.getElementById("toprint-total").innerHTML = `<span class="label">Total</span>${fmtMoney(sum(toPrint, "Total"))}`;
     renderCards("hershey-cards", "hershey-count", hersheyAll, "hershey-total", "Pending");
     renderCards("lara-cards", "lara-count", laraAll, "lara-total", "Pending");
     renderCards("lizette-cards", "lizette-count", lizetteAll, "lizette-total", "Pending");
 
     const readyTotalValue = sum(readyAll, "Total");
-    const printingTotalValue = sum(printing, "Total");
-    const readyBadgeHtml = `<span class="label">Ready for Assigning</span>${readyAll.length} &middot; ${fmtMoney(readyTotalValue)}`;
-    const combinedBadgeHtml = `<span class="label">Combined</span>${readyAll.length + printing.length} &middot; ${fmtMoney(readyTotalValue + printingTotalValue)}`;
-    document.getElementById("printing-ready-total").innerHTML = readyBadgeHtml;
-    document.getElementById("printing-combined-total").innerHTML = combinedBadgeHtml;
-    document.getElementById("toprint-ready-total").innerHTML = readyBadgeHtml;
-    document.getElementById("toprint-combined-total").innerHTML = combinedBadgeHtml;
-
+    const printingTotalValue = sum(printing, "Total"); // "Printing" = all quota-checked orders in the printing pipeline
     // Pending = the orders actually shown in the assignee columns below (not yet finished)
     const pendingCount = hersheyAll.length + laraAll.length + lizetteAll.length;
     const pendingTotal = sum(hersheyAll, "Total") + sum(laraAll, "Total") + sum(lizetteAll, "Total");
+    const toPrintOnly = toPrint.filter(r => r.fields["Status"] === "To print");
+    const toPrintOnlyValue = sum(toPrintOnly, "Total");
+    const totalPrintedValue = quotaTotals.weeklyTotal + pendingTotal + readyTotalValue;
+    const tentativeTotalValue = totalPrintedValue + printingTotalValue;
 
-    const grandTotalHtml = `<span class="label">This Week + Pending + Ready + Printing</span>${fmtMoney(quotaTotals.weeklyTotal + pendingTotal + readyTotalValue + printingTotalValue)}`;
-    document.getElementById("printing-grand-total").innerHTML = grandTotalHtml;
-    document.getElementById("toprint-grand-total").innerHTML = grandTotalHtml;
+    const setPrintBadge = (id, label, count, value) => {
+      document.getElementById(id).innerHTML = `<span class="label">${label}</span>${count != null ? `${count} &middot; ` : ""}${fmtMoney(value)}`;
+    };
+    setPrintBadge("toprint-toprint-total", "To Print", toPrintOnly.length, toPrintOnlyValue);
+    setPrintBadge("toprint-printing-total", "Printing", printing.length, printingTotalValue);
+    setPrintBadge("toprint-forassigning-total", "For Assigning", readyAll.length, readyTotalValue);
+    setPrintBadge("toprint-pending-total", "Pending", pendingCount, pendingTotal);
+    setPrintBadge("toprint-totalprinted-total", "Total Printed", null, totalPrintedValue);
+    setPrintBadge("toprint-tentative-total", "Tentative Total", null, tentativeTotalValue);
 
     // Done today = assigned orders finished today (Date finished), not shown as cards below
     const doneCount = quotaTotals.doneTodayCount;
