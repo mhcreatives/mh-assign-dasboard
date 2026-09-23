@@ -557,7 +557,20 @@
     border-radius:10px;
     overflow:auto;
     max-height:75vh;
+    transition:max-height .15s ease;
   }
+  .grid-table-wrap.shrunk{max-height:180px;}
+  .shrink-toggle{
+    margin-left:auto;
+    font-size:11px;
+    font-weight:600;
+    padding:3px 10px;
+    border-radius:999px;
+    background:transparent;
+    color:var(--muted);
+    border:1px solid var(--border-strong);
+  }
+  .shrink-toggle:hover{background:var(--panel);color:var(--text);}
   .grid-table{
     border-collapse:collapse;
     width:100%;
@@ -684,8 +697,9 @@
       <span class="total-badge" id="toprint-pending-total"></span>
       <span class="total-badge" id="toprint-totalprinted-total"></span>
       <span class="total-badge" id="toprint-tentative-total"></span>
+      <button class="shrink-toggle" id="toprint-shrink-toggle" type="button" title="Shrink/expand the table">Shrink</button>
     </div>
-    <div class="grid-table-wrap"><table class="grid-table" id="toprint-table"></table></div>
+    <div class="grid-table-wrap" id="toprint-table-wrap"><table class="grid-table" id="toprint-table"></table></div>
   </section>
 </div>
 
@@ -1669,15 +1683,13 @@ async function loadDashboard(){
     const NO_ENVELOPE_TYPES = ["No envelope","Plain White","Plain white","Print only","Booklet","Sliding Invitation"];
     const readyFormula = `AND(OR({Status}="To assemble",{Status}="Wax seal to do"),OR({Envelope in stock}=1,${NO_ENVELOPE_TYPES.map(t => `{Type}="${t}"`).join(",")}),{Assignee for assembly}="")`;
     const assigneeFormula = (name) => `AND({Assignee for assembly}="${name}",NOT(OR({Status}="Done",{Status}="Cancelled",{Status}="For posting",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
-    const LAYOUT_STATUSES = ["On hold layout","For layout","Layout to copy","Seal for layout","Vellum for layout","Liner for layout","Envelope for layout","Layout in progress","Map layout"];
-    const printingFormula = `AND({Assignee for assembly}="",{Quota}=1,NOT(OR({Status}="For posting",{Status}="Cancelled",{Status}="For revision",{Status}="To assemble",{Status}="Wax seal to do",{Status}="Waiting approval (client)",${LAYOUT_STATUSES.map(s => `{Status}="${s}"`).join(",")})))`;
     const toPrintFormula = `OR(${TOPRINT_STATUSES.map(s => `{Status}="${s}"`).join(",")})`;
 
     // Solo souvenir orders: not linked to any Invitation record
     const soloReadyFormula = `AND({Status}="To assemble",{Invitation}="",{Assignee for assembly}="")`;
     const soloAssigneeFormula = (name) => `AND({Assignee for assembly}="${name}",{Invitation}="",NOT(OR({Status}="Done",{Status}="Canceled",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
 
-    const [ready, hershey, lara, lizette, soloReady, soloHershey, soloLara, soloLizette, quotaTotals, printing, toPrint] = await Promise.all([
+    const [ready, hershey, lara, lizette, soloReady, soloHershey, soloLara, soloLizette, quotaTotals, toPrint] = await Promise.all([
       fetchAllRecords(readyFormula),
       fetchAllRecords(assigneeFormula("Hershey")),
       fetchAllRecords(assigneeFormula("Lara")),
@@ -1687,13 +1699,12 @@ async function loadDashboard(){
       fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lara")),
       fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lizette")),
       fetchQuotaTotals(),
-      fetchAllRecords(printingFormula, "Status"),
       fetchAllFromTable(TABLE_ID, TOPRINT_FIELDS, toPrintFormula)
     ]);
     toPrint.sort(toPrintComparator());
     [soloReady, soloHershey, soloLara, soloLizette].forEach(list => list.forEach(rec => rec._kind = "souvenir"));
 
-    const allSouvenirIds = [...ready, ...hershey, ...lara, ...lizette, ...printing]
+    const allSouvenirIds = [...ready, ...hershey, ...lara, ...lizette, ...toPrint]
       .flatMap(rec => asList(rec.fields["Souvenir 2"]));
     SOUVENIR_MAP = await fetchSouvenirsByIds(allSouvenirIds);
 
@@ -1709,12 +1720,15 @@ async function loadDashboard(){
     renderCards("lizette-cards", "lizette-count", lizetteAll, "lizette-total", "Pending");
 
     const readyTotalValue = sum(readyAll, "Total");
-    const printingTotalValue = sum(printing, "Total"); // "Printing" = all quota-checked orders in the printing pipeline
     // Pending = the orders actually shown in the assignee columns below (not yet finished)
     const pendingCount = hersheyAll.length + laraAll.length + lizetteAll.length;
     const pendingTotal = sum(hersheyAll, "Total") + sum(laraAll, "Total") + sum(lizetteAll, "Total");
+    // "To Print" and "Printing" are a clean split of the same 8-status set (toPrint) by Quota,
+    // so together they always reconcile with the grid's own total.
     const toPrintOnly = toPrint.filter(r => !r.fields["Quota"]);
+    const printingCheckedOnly = toPrint.filter(r => r.fields["Quota"]);
     const toPrintOnlyValue = sum(toPrintOnly, "Total");
+    const printingTotalValue = sum(printingCheckedOnly, "Total");
     const totalPrintedValue = quotaTotals.weeklyTotal + pendingTotal + readyTotalValue;
     const tentativeTotalValue = totalPrintedValue + printingTotalValue;
 
@@ -1722,7 +1736,7 @@ async function loadDashboard(){
       document.getElementById(id).innerHTML = `<span class="label">${label}</span>${count != null ? `${count} &middot; ` : ""}${fmtMoney(value)}`;
     };
     setPrintBadge("toprint-toprint-total", "To Print", toPrintOnly.length, toPrintOnlyValue);
-    setPrintBadge("toprint-printing-total", "Printing", printing.length, printingTotalValue);
+    setPrintBadge("toprint-printing-total", "Printing", printingCheckedOnly.length, printingTotalValue);
     setPrintBadge("toprint-forassigning-total", "For Assigning", readyAll.length, readyTotalValue);
     setPrintBadge("toprint-pending-total", "Pending", pendingCount, pendingTotal);
     setPrintBadge("toprint-totalprinted-total", "Total Printed", null, totalPrintedValue);
@@ -1854,18 +1868,41 @@ document.getElementById("inventory-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") addInventoryItem();
 });
 
+function activateTab(tabName){
+  const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+  const panel = document.getElementById(`tab-${tabName}`);
+  if (!btn || !panel) return;
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab-panel").forEach(p => p.hidden = true);
+  btn.classList.add("active");
+  panel.hidden = false;
+  try { localStorage.setItem("mh_active_tab", tabName); } catch {}
+}
+
 document.querySelectorAll(".tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".tab-panel").forEach(p => p.hidden = true);
-    btn.classList.add("active");
-    document.getElementById(`tab-${btn.dataset.tab}`).hidden = false;
-  });
+  btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+});
+
+function setShrunk(shrunk){
+  const wrap = document.getElementById("toprint-table-wrap");
+  const btn = document.getElementById("toprint-shrink-toggle");
+  wrap.classList.toggle("shrunk", shrunk);
+  btn.textContent = shrunk ? "Expand" : "Shrink";
+  try { localStorage.setItem("mh_toprint_shrunk", shrunk ? "1" : "0"); } catch {}
+}
+document.getElementById("toprint-shrink-toggle").addEventListener("click", () => {
+  setShrunk(!document.getElementById("toprint-table-wrap").classList.contains("shrunk"));
 });
 
 window.addEventListener("DOMContentLoaded", () => {
   const existing = getToken();
   if (existing) patInput.value = existing;
+  let savedTab = null;
+  try { savedTab = localStorage.getItem("mh_active_tab"); } catch {}
+  if (savedTab) activateTab(savedTab);
+  let savedShrunk = null;
+  try { savedShrunk = localStorage.getItem("mh_toprint_shrunk"); } catch {}
+  if (savedShrunk === "1") setShrunk(true);
   renderInventory();
   loadDashboard();
 });
