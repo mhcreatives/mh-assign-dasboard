@@ -550,6 +550,47 @@
   .pace-cell.unmet{color:#f5a524;}
   .summary-table .day-label{font-weight:600;color:var(--text);}
   .summary-table .day-date{font-size:11px;color:var(--muted);font-weight:400;margin-left:4px;}
+
+  .grid-table-wrap{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:auto;
+    max-height:75vh;
+  }
+  .grid-table{
+    border-collapse:collapse;
+    width:100%;
+    min-width:1200px;
+    font-size:12.5px;
+  }
+  .grid-table th, .grid-table td{
+    padding:7px 10px;
+    border-bottom:1px solid var(--border);
+    border-right:1px solid var(--border);
+    white-space:nowrap;
+    text-align:left;
+  }
+  .grid-table thead th{
+    position:sticky;
+    top:0;
+    background:var(--header-bg);
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:var(--muted);
+    z-index:1;
+  }
+  .grid-table tbody tr:hover{background:var(--row-hover);}
+  .grid-table td.num{font-weight:700;}
+  .grid-table td.center{text-align:center;}
+  .grid-table .quota-checkbox{
+    width:16px;height:16px;
+    cursor:pointer;
+    accent-color:var(--accent);
+  }
+  .grid-table .grid-link{color:var(--accent);text-decoration:none;font-weight:600;}
+  .grid-table .grid-link:hover{text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -600,6 +641,7 @@
 <div class="tab-nav">
   <button class="tab-btn active" data-tab="assembly">Assembly</button>
   <button class="tab-btn" data-tab="printing">Printing</button>
+  <button class="tab-btn" data-tab="toprint">To Print</button>
   <button class="tab-btn" data-tab="inventory">Inventory</button>
   <button class="tab-btn" data-tab="summary">Summary</button>
 </div>
@@ -640,6 +682,13 @@
   </section>
 </div>
 
+<div class="tab-panel" id="tab-toprint" hidden>
+  <section>
+    <div class="section-title printing"><span class="dot printing"></span> To Print <span class="count-badge" id="toprint-count">0</span><span class="total-badge" id="toprint-total"></span></div>
+    <div class="grid-table-wrap"><table class="grid-table" id="toprint-table"></table></div>
+  </section>
+</div>
+
 <div class="tab-panel" id="tab-inventory" hidden>
   <section>
     <div class="section-title">Inventory Checklist</div>
@@ -668,6 +717,34 @@ const TABLE_ID = "tblYa1m1b8ru4vOh9";
 const SOUVENIR_TABLE_ID = "tblXtn5j4tMaL9Tax";
 let SOUVENIR_MAP = {};
 const SOLO_SOUVENIR_FIELDS = ["FB Name","Meta link","Priority","Area","Event date","Assignee for assembly","Status","Type","QTY","Total","DP","Balance","Details"];
+
+// Printing-related statuses, in production sequence order
+const TOPRINT_STATUSES = ["To print","Sample print","Printing","Liner to print","Vellum to print","Seal to print","Tag to print","Envelope to print"];
+// Columns rendered on the To Print grid, in order
+const TOPRINT_COLUMNS = [
+  { key: "Client Number", label: "#", type: "num" },
+  { key: "FB Name", label: "FB Name", type: "text" },
+  { key: "Meta link", label: "Convo", type: "link" },
+  { key: "Layout", label: "Layout", type: "link" },
+  { key: "Priority", label: "Priority", type: "pill" },
+  { key: "Event date", label: "Event Date", type: "date" },
+  { key: "Date needed", label: "Date Needed", type: "date" },
+  { key: "Area", label: "Area", type: "pill" },
+  { key: "Status", label: "Status", type: "pill" },
+  { key: "Quota", label: "Quota", type: "checkbox-editable" },
+  { key: "Inserts", label: "Inserts", type: "pill" },
+  { key: "QTY", label: "Qty", type: "text" },
+  { key: "Free Sets", label: "Free", type: "text" },
+  { key: "Size", label: "Size", type: "pill" },
+  { key: "Texture", label: "Texture", type: "pill" },
+  { key: "Type", label: "Type", type: "pill" },
+  { key: "Color", label: "Color", type: "pill" },
+  { key: "Seal", label: "Seal", type: "pill" },
+  { key: "Wax", label: "Wax", type: "pill" },
+  { key: "Add ons", label: "Add Ons", type: "pill" },
+  { key: "Total", label: "Total", type: "currency" }
+];
+const TOPRINT_FIELDS = TOPRINT_COLUMNS.map(c => c.key);
 const DAILY_QUOTA = 40000;
 const WEEKLY_QUOTA = 200000;
 const ASSIGNEE_DAILY_QUOTA = { Hershey: 14000, Lara: 14000, Lizette: 12000 };
@@ -932,6 +1009,69 @@ function fieldValueHtml(col, value){
 
 function escapeAttr(s){
   return String(s).replace(/"/g, "&quot;");
+}
+
+async function updateCheckboxField(recordId, fieldName, checked, el, tableId){
+  const token = getToken();
+  el.disabled = true;
+  try {
+    const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${tableId || TABLE_ID}/${recordId}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [fieldName]: checked } })
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Failed to update ${fieldName}: ${res.status} ${body}`);
+    }
+    setStatus(`Saved ${fieldName} at ${new Date().toLocaleTimeString()}`);
+  } catch (err) {
+    console.error(err);
+    setStatus(err.message, true);
+    el.checked = !checked;
+  } finally {
+    el.disabled = false;
+  }
+}
+
+function gridCellHtml(col, value){
+  if (col.type === "num") return value != null ? `#${value}` : "—";
+  if (col.type === "date") return fmtDate(value) || "—";
+  if (col.type === "currency") return fmtMoney(value);
+  if (col.type === "link") return value ? `<a class="grid-link" href="${escapeAttr(value)}" target="_blank" rel="noopener">Open &rarr;</a>` : "—";
+  if (col.type === "pill"){
+    const items = asList(value).filter(Boolean);
+    if (!items.length) return "—";
+    return items.map(v => {
+      const c = pillColor(col.key, v);
+      return `<span class="pill" style="background:${c.bg};color:${c.fg};">${v}</span>`;
+    }).join(" ");
+  }
+  return (value != null && value !== "") ? value : "—";
+}
+
+function renderToPrintTable(records){
+  const table = document.getElementById("toprint-table");
+  const theadHtml = `<thead><tr>${TOPRINT_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}</tr></thead>`;
+  if (!records.length){
+    table.innerHTML = `${theadHtml}<tbody><tr><td colspan="${TOPRINT_COLUMNS.length}" style="text-align:center;color:var(--muted);">No orders in a printing status.</td></tr></tbody>`;
+    return;
+  }
+  const bodyRows = records.map(rec => {
+    const cells = TOPRINT_COLUMNS.map(col => {
+      if (col.type === "checkbox-editable"){
+        return `<td class="center"><input type="checkbox" class="quota-checkbox" data-id="${rec.id}" ${rec.fields[col.key] ? "checked" : ""}></td>`;
+      }
+      const cls = col.type === "num" ? "num" : "";
+      return `<td class="${cls}">${gridCellHtml(col, rec.fields[col.key])}</td>`;
+    }).join("");
+    return `<tr>${cells}</tr>`;
+  }).join("");
+  table.innerHTML = `${theadHtml}<tbody>${bodyRows}</tbody>`;
+
+  table.querySelectorAll(".quota-checkbox").forEach(cb => {
+    cb.addEventListener("change", () => updateCheckboxField(cb.dataset.id, "Quota", cb.checked, cb));
+  });
 }
 
 // Plain (no header, no color) value for a headerless row
@@ -1473,12 +1613,13 @@ async function loadDashboard(){
     const assigneeFormula = (name) => `AND({Assignee for assembly}="${name}",NOT(OR({Status}="Done",{Status}="Cancelled",{Status}="For posting",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
     const LAYOUT_STATUSES = ["On hold layout","For layout","Layout to copy","Seal for layout","Vellum for layout","Liner for layout","Envelope for layout","Layout in progress","Map layout"];
     const printingFormula = `AND({Assignee for assembly}="",{Quota}=1,NOT(OR({Status}="For posting",{Status}="Cancelled",{Status}="For revision",{Status}="To assemble",{Status}="Wax seal to do",{Status}="Waiting approval (client)",${LAYOUT_STATUSES.map(s => `{Status}="${s}"`).join(",")})))`;
+    const toPrintFormula = `OR(${TOPRINT_STATUSES.map(s => `{Status}="${s}"`).join(",")})`;
 
     // Solo souvenir orders: not linked to any Invitation record
     const soloReadyFormula = `AND({Status}="To assemble",{Invitation}="",{Assignee for assembly}="")`;
     const soloAssigneeFormula = (name) => `AND({Assignee for assembly}="${name}",{Invitation}="",NOT(OR({Status}="Done",{Status}="Canceled",{Status}="To Ship",{Status}="For packaging",{Status}="Photo")))`;
 
-    const [ready, hershey, lara, lizette, soloReady, soloHershey, soloLara, soloLizette, quotaTotals, printing] = await Promise.all([
+    const [ready, hershey, lara, lizette, soloReady, soloHershey, soloLara, soloLizette, quotaTotals, printing, toPrint] = await Promise.all([
       fetchAllRecords(readyFormula),
       fetchAllRecords(assigneeFormula("Hershey")),
       fetchAllRecords(assigneeFormula("Lara")),
@@ -1488,8 +1629,10 @@ async function loadDashboard(){
       fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lara")),
       fetchAllFromTable(SOUVENIR_TABLE_ID, SOLO_SOUVENIR_FIELDS, soloAssigneeFormula("Lizette")),
       fetchQuotaTotals(),
-      fetchAllRecords(printingFormula, "Status")
+      fetchAllRecords(printingFormula, "Status"),
+      fetchAllFromTable(TABLE_ID, TOPRINT_FIELDS, toPrintFormula)
     ]);
+    toPrint.sort((a, b) => TOPRINT_STATUSES.indexOf(a.fields["Status"]) - TOPRINT_STATUSES.indexOf(b.fields["Status"]));
     [soloReady, soloHershey, soloLara, soloLizette].forEach(list => list.forEach(rec => rec._kind = "souvenir"));
 
     const allSouvenirIds = [...ready, ...hershey, ...lara, ...lizette, ...printing]
@@ -1503,6 +1646,9 @@ async function loadDashboard(){
 
     renderCards("ready-cards", "ready-count", readyAll, "ready-total");
     renderCards("printing-cards", "printing-count", printing, "printing-total");
+    renderToPrintTable(toPrint);
+    document.getElementById("toprint-count").textContent = toPrint.length;
+    document.getElementById("toprint-total").innerHTML = `<span class="label">Total</span>${fmtMoney(sum(toPrint, "Total"))}`;
     renderCards("hershey-cards", "hershey-count", hersheyAll, "hershey-total", "Pending");
     renderCards("lara-cards", "lara-count", laraAll, "lara-total", "Pending");
     renderCards("lizette-cards", "lizette-count", lizetteAll, "lizette-total", "Pending");
